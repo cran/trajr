@@ -6,22 +6,30 @@
     stop("Missing time information in trajectory. Perhaps this is a rediscretized trajectory?")
 }
 
-#' Calculates trajectory speed and acceleration
+#' Calculates trajectory speed and linear acceleration
 #'
 #' Calculates speed and linear acceleration along a trajectory over time. Noisy
 #' trajectories should be smoothed before being passed to this function, as
 #' noise is effectively amplifed when calculating speed and acceleration.
 #'
-#' @param trj Trajectory whose speed and acceleration is to be calculated.
+#' Note that it is possible to obtain the duration of each step in a trajectory
+#' as follows: \preformatted{r <- TrajDerivatives(trj)
+#' stepLengths <- diff(c(0, r$speedTimes))}.
+#'
+#' @param trj Trajectory whose speed and linear acceleration is to be
+#'   calculated.
 #'
 #' @return A list with components: \item{speed}{numeric vector, speed between
-#'   each pair of trajectory points.} \item{speedTimes}{numeric vector, times
-#'   corresponding to values in \code{speed}.} \item{acceleration}{numeric
-#'   vector.} \item{accelerationTimes}{numeric vector.}
+#'   each pair of trajectory points, i.e. the speed of each step.}
+#'   \item{speedTimes}{numeric vector, times corresponding to values in
+#'   \code{speed}, i.e. the time from the start of the trajectory to the end of
+#'   each step.} \item{acceleration}{numeric vector, linear acceleration between
+#'   steps.} \item{accelerationTimes}{numeric vector, time from start of
+#'   trajectory to the end of the second step in each pair.}
 #'
-#' @seealso \code{\link{TrajSpeedIntervals}} for analysing intervals within the
-#'   trajectory of low or high speed. \code{\link{TrajSmoothSG}} for smoothing a
-#'   trajectory.
+#' @seealso \code{\link{TrajSpeedIntervals}} for analysing intervals of low or
+#'   high speed within the trajectory. \code{\link{TrajSmoothSG}} for smoothing
+#'   a trajectory.
 #'
 #' @export
 TrajDerivatives <- function(trj) {
@@ -202,7 +210,7 @@ plot.TrajSpeedIntervals <- function(x,
                                     ...) {
   derivs <- attr(x, "derivs")
   speed <- derivs$speed
-  graphics::plot(x = derivs$speedTimes, y = speed, type = 'l', xlab = xlab, ylab = ylab)
+  graphics::plot(x = derivs$speedTimes, y = speed, type = 'l', xlab = xlab, ylab = ylab, ...)
   graphics::abline(h = attr(x, "slowerThan"), col = slowerThanColour)
   graphics::abline(h = attr(x, "fasterThan"), col = fasterThanColour)
   if (nrow(x) > 0)

@@ -31,7 +31,7 @@
     coords <- coordList[[i]]
     # Check that there are at least 2 columns
     if (ncol(coords) < 2) {
-      stop(sprintf("Invalid trajectory CSV file %s, contains %d column but requires at least 2", fileName, ncol(coords)))
+      stop(sprintf("Invalid trajectory CSV file %s, contains %d column(s) but requires at least 2", fileName, ncol(coords)))
     }
   }
   coordList
@@ -76,6 +76,8 @@
 #'   \code{\link{TrajSmoothSG}})
 #' @param smoothN Filter length to be used for Savitzky-Golay smoothing (must be
 #'   odd, see \code{\link{TrajSmoothSG}})
+#' @param translateToOrigin If TRUE, the trajectory is translated so that its
+#'   starting point is at (0, 0).
 #' @param rootDir Optional name of a top level directory which contains the CSV
 #'   files. If \code{rootDir} is not NULL, the CSV files may be located anywhere
 #'   within \code{rootDir} or its sub-directories.
@@ -88,7 +90,8 @@
 #' @return A list of trajectories.
 #'
 #' @seealso \code{\link[utils]{read.csv}}, \code{\link{TrajFromCoords}},
-#'   \code{\link{TrajScale}}, \code{\link{TrajSmoothSG}}
+#'   \code{\link{TrajScale}}, \code{\link{TrajSmoothSG}},
+#'   \code{\link{TrajTranslate}}
 #'
 #' @examples
 #' \dontrun{
@@ -111,6 +114,7 @@ TrajsBuild <- function(fileNames, fps = NULL, scale = NULL,
                        spatialUnits = NULL, timeUnits = NULL,
                        csvStruct = list(x = 1, y = 2, time = NULL),
                        smoothP = 3, smoothN = 41,
+                       translateToOrigin = FALSE,
                        rootDir = NULL,
                        csvReadFn = utils::read.csv, ...) {
   # I hate factors!
@@ -175,6 +179,11 @@ TrajsBuild <- function(fileNames, fps = NULL, scale = NULL,
         if (is.numeric(smoothP) && is.numeric(smoothN)) {
           trj <- TrajSmoothSG(trj, smoothP, smoothN)
         }
+
+        # Translate to origin
+        if (translateToOrigin) {
+          trj <- TrajTranslate(trj, -trj$x[1], -trj$y[1])
+        }
       }
 
       result[[length(result) + 1]] <- trj
@@ -190,13 +199,15 @@ TrajsBuild <- function(fileNames, fps = NULL, scale = NULL,
 
 #' Merge trajectory characteristics
 #'
-#' Builds a data frame by combining rows of statistical values for multiple trajectories.
+#' Builds a data frame by combining rows of statistical values for multiple
+#' trajectories. The statistics for each trajectory are defined by the caller in
+#' a user defined function - see the example for one way to achieve this.
 #'
-#' @section Note:
-#' Any NULL valued statistics are converted to NAs.
+#' @section Note: Any NULL valued statistics are converted to NAs.
 #'
 #' @param trjs List of trajectories to be characterised.
-#' @param statsFn Function to calculate statistics of interest for a single trajectory.
+#' @param statsFn Function to calculate statistics of interest for a single
+#'   trajectory.
 #' @param ... Additional arguments passed to \code{statsFn}.
 #'
 #' @examples
@@ -234,6 +245,7 @@ TrajsBuild <- function(fileNames, fps = NULL, scale = NULL,
 #'
 #' @export
 TrajsMergeStats <- function(trjs, statsFn, ...) {
+  # TODO rename? perhaps TrajsRBindStats would be more meaningful
   result <- data.frame()
   nc <- NA
   rowNum <- 1
@@ -246,7 +258,7 @@ TrajsMergeStats <- function(trjs, statsFn, ...) {
     if(is.na(nc))
       nc <- length(row)
     else if (nc != length(row))
-      stop(sprintf("Statistics for trajectory %d contain %d values, but expected %d", rowNum, length(row), nc))
+      stop(sprintf("Statistics for trajectory %d contains %d values, but expected %d", rowNum, length(row), nc))
     result <- rbind(result, row)
 
     rowNum <- rowNum + 1
@@ -276,10 +288,11 @@ TrajsStepLengths <- function(trjs) {
 
 #' Replace NAs in a data frame
 #'
-#' Replaces NAs in a single column of a data frame with an uninformative numeric
-#' replacement value, so that a principal components analysis can be applied
-#' without discarding data. Optionally adds a new "flag" column which contains
-#' \code{1} for each row which originally contained NA, otherwise \code{0}.
+#' Replaces NAs in a single column of a data frame with an imputed uninformative
+#' numeric replacement value, so that a principal component analysis can be
+#' applied without discarding data. Optionally adds a new "flag" column which
+#' contains \code{1} for each row which originally contained NA, otherwise
+#' \code{0}.
 #'
 #' @param df Data frame to be adjusted.
 #' @param column Name or index of the column to be adjusted.

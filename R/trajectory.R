@@ -51,9 +51,10 @@
 #' are sometimes referred to as "relocations".
 #'
 #' If \code{timeCol} is specified, \code{track[,timeCol]} is expected to contain
-#' the time (in seconds) of each coordinate. Otherwise, times are calculated for
-#' each point as \code{(coord - 1) / fps} where \code{coord} is the index of the
-#' point; in other words, sampling at constant time intervals is assumed.
+#' the time (in some numeric units) of each coordinate. Otherwise, times are
+#' calculated for each point as \code{(coord - 1) / fps} where \code{coord} is
+#' the index of the point; in other words, sampling at constant time intervals
+#' is assumed.
 #'
 #' \code{x} and \code{y} must be square units. Longitude and latitude are not
 #' suitable for use as \code{x} and \code{y} values, since in general, \code{1°
@@ -79,10 +80,11 @@
 #'   \item{y}{Y coordinates of trajectory points.} \item{time}{Time (in
 #'   \code{timeUnits}) for each point. if \code{timeCol} is specified, values
 #'   are \code{trj[,timeCol]}, otherwise values are calculated from \code{fps}.}
-#'   \item{displacementTime}{Frame times, with frame 1 at time \code{0}.}
-#'   \item{polar}{Coordinates represented as complex numbers, to simplify
-#'   working with segment angles.} \item{displacement}{Displacements between
-#'   each pair of consecutive points.}
+#'   \item{displacementTime}{Relative frame/observation times, with
+#'   frame/observation 1 at time \code{0}.} \item{polar}{Coordinates represented
+#'   as complex numbers, to simplify working with segment angles.}
+#'   \item{displacement}{Displacement vectors (represented as complex numbers)
+#'   between each pair of consecutive points.}
 #'
 #' @examples
 #'
@@ -216,6 +218,33 @@ TrajRotate <- function(trj, angle = 0) {
 TrajReverse <- function(trj) {
   trj$x <- rev(trj$x)
   trj$y <- rev(trj$y)
+
+  .fillInTraj(trj)
+}
+
+#' Translate a trajectory
+#'
+#' Shifts an entire trajectory by the specified delta x and y.
+#'
+#' @param trj The Trajectory to be translated
+#' @param dx Delta x.
+#' @param dy Delta y.
+#' @return A new trajectory which is a translated version of the input trajectory.
+#'
+#' @examples
+#' # Shift a trajectory so that its origin is (10, 15).
+#' # Note that trajectories created by TrajGenerate always start at (0, 0)
+#' set.seed(42)
+#' trj <- TrajGenerate()
+#' trj <- TrajTranslate(trj, 10, 15)
+#'
+#' # Translate a trajectory so its origin (0, 0)
+#' trj <- TrajTranslate(trj, -trj$x[1], -trj$y[1])
+#'
+#' @export
+TrajTranslate <- function(trj, dx, dy) {
+  trj$x <- trj$x + dx
+  trj$y <- trj$y + dy
 
   .fillInTraj(trj)
 }

@@ -13,7 +13,8 @@ TrajGetFPS <- function(trj) { attr(trj, .TRAJ_FPS) }
 
 #' Trajectory number of coordinates
 #'
-#' Returns the number of coordinates recorded for this trajectory, i.e. 1 more than the number of steps.
+#' Returns the number of coordinates recorded for this trajectory, i.e. 1 more
+#' than the number of steps.
 #'
 #' @param trj Trajectory to query
 #'
@@ -83,13 +84,49 @@ TrajDistance <- function(trj, startIndex = 1, endIndex = nrow(trj)) {
 #' @param trj Trajectory whose length is to be calculated.
 #' @param startIndex Index of the starting point.
 #' @param endIndex Index of the ending point.
-#' @return Path Numeric length of the trajectory.
+#' @return Numeric length of the trajectory.
 #'
 #' @seealso \code{\link{TrajStepLengths}}
 #'
 #' @export
 TrajLength <- function(trj, startIndex = 1, endIndex = nrow(trj)) {
   sum(Mod(diff(trj$polar[startIndex:endIndex])))
+}
+
+#' Trajectory duration
+#'
+#' Calculates the temporal duration of a trajectory (or a portion of a
+#' trajectory).
+#'
+#' @param trj Trajectory whose duration is to be calculated.
+#' @param startIndex Index of the starting point.
+#' @param endIndex Index of the ending point.
+#' @return Numeric duration of the trajectory, in time units.
+#'
+#' @seealso \code{\link{TrajGetTimeUnits}}
+#'
+#' @export
+TrajDuration <- function(trj, startIndex = 1, endIndex = nrow(trj)) {
+  diff(trj$displacementTime[c(startIndex, endIndex)])
+}
+
+#' Trajectory mean velocity
+#'
+#' Calculates the mean or net velocity of a trajectory (or a portion of a
+#' trajectory). Theisis the velocity from the start point to the end point,
+#' ignoring the path that was taken.
+#'
+#' @param trj Trajectory whose duration is to be calculated.
+#' @param startIndex Index of the starting point.
+#' @param endIndex Index of the ending point.
+#' @return Numeric duration of the trajectory, in time units.
+#'
+#' @seealso \code{\link{TrajGetTimeUnits}}
+#'
+#' @export
+TrajMeanVelocity <- function(trj, startIndex = 1, endIndex = nrow(trj)) {
+  d <- (trj[endIndex, c("x", "y")] - trj[startIndex, c("x", "y")]) / TrajDuration(trj, startIndex, endIndex)
+  complex(real = d[1], imaginary = d[2])
 }
 
 #' Turning angles of a Trajectory
@@ -193,8 +230,11 @@ TrajExpectedSquareDisplacement <- function(trj, n = nrow(trj), eqn1 = TRUE, comp
     # Eqn 1
     alpha <- atan2(s, c)
     gamma <- ((1 - c)^2 - s2) * cos((n + 1) * alpha) - 2 * s * (1 - c) * sin((n + 1) * alpha)
-    n * l2 + 2 * l^2 * ((c - c^2 - s2) * n  - c) / ((1 - c)^2 + s2) +
+    esd <- n * l2 + 2 * l^2 * ((c - c^2 - s2) * n  - c) / ((1 - c)^2 + s2) +
       2 * l^2 * ((2 * s2 + (c + s2) ^ ((n + 1) / 2)) / ((1 - c)^2 + s2)^2) * gamma
+    # There seems to be a bug in the expression - for very straight trajectories,
+    # value is negative although it seems to have a reasonable absolute value
+    abs(esd)
   } else {
     # Eqn 2
     n * l2 + 2 * l^2 * c / (1 - c) * (n - (1 - c^n) / (1 - c))

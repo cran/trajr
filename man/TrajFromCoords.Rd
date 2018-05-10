@@ -32,10 +32,11 @@ An object with class "\code{Trajectory}", which is a data.frame with
   \item{y}{Y coordinates of trajectory points.} \item{time}{Time (in
   \code{timeUnits}) for each point. if \code{timeCol} is specified, values
   are \code{trj[,timeCol]}, otherwise values are calculated from \code{fps}.}
-  \item{displacementTime}{Frame times, with frame 1 at time \code{0}.}
-  \item{polar}{Coordinates represented as complex numbers, to simplify
-  working with segment angles.} \item{displacement}{Displacements between
-  each pair of consecutive points.}
+  \item{displacementTime}{Relative frame/observation times, with
+  frame/observation 1 at time \code{0}.} \item{polar}{Coordinates represented
+  as complex numbers, to simplify working with segment angles.}
+  \item{displacement}{Displacement vectors (represented as complex numbers)
+  between each pair of consecutive points.}
 }
 \description{
 \code{TrajFromCoords} creates a new trajectory object from a set of
@@ -44,9 +45,10 @@ are sometimes referred to as "relocations".
 }
 \details{
 If \code{timeCol} is specified, \code{track[,timeCol]} is expected to contain
-the time (in seconds) of each coordinate. Otherwise, times are calculated for
-each point as \code{(coord - 1) / fps} where \code{coord} is the index of the
-point; in other words, sampling at constant time intervals is assumed.
+the time (in some numeric units) of each coordinate. Otherwise, times are
+calculated for each point as \code{(coord - 1) / fps} where \code{coord} is
+the index of the point; in other words, sampling at constant time intervals
+is assumed.
 
 \code{x} and \code{y} must be square units. Longitude and latitude are not
 suitable for use as \code{x} and \code{y} values, since in general, \code{1°
