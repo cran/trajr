@@ -22,8 +22,8 @@
 }
 
 # Reads a file and returns a list of trajectory coordinates
-.readAndCheckCoords <- function(fileName, csvReadFn) {
-  coordList <- csvReadFn(fileName, stringsAsFactors = FALSE)
+.readAndCheckCoords <- function(fileName, csvReadFn, ...) {
+  coordList <- csvReadFn(fileName, ...)
   # Note a data.frame is a type of list, so we can't use is.list() here
   if (!inherits(coordList, "list"))
     coordList <- list(coordList)
@@ -45,13 +45,18 @@
 #' them, and optionally smooths and scales them. Attempts to collect and report
 #' errors for multiple trajectories in a single call.
 #'
-#' For each file name in \code{fileNames}, searches through the folder
-#' \code{rootDir} (unless it's \code{NULL}) to find the file, then reads the
-#' file by calling \code{csvReadFn} to obtain a set of coordinates and
-#' optionally times. A Trajectory is constructed by passing the coordinates to
+#' If \code{rootDir} is not null, it should be the name of a directory which is
+#' searched for the files in \code{fileNames}. The found files are then used as
+#' the list of files to be read in. This may be useful when the names of the
+#' files are known, but their exact location within a directory structure is not
+#' known.
+#'
+#' For each file name in \code{fileNames}, reads the file by calling
+#' \code{csvReadFn} to obtain a set of coordinates and optionally times. A
+#' Trajectory is then constructed by passing the coordinates to
 #' \code{\link{TrajFromCoords}}, passing in the appropriate \code{fps} value,
 #' and x, y and time column names/indices from \code{csvStruct}. If \code{scale}
-#' is not \code{NULL}, the trajectory is then scaled by calling
+#' is not \code{NULL}, the trajectory is scaled by calling
 #' \code{\link{TrajScale}}. If \code{smoothP} and \code{smoothN} are not
 #' \code{NULL}, the trajectory is smoothed by calling
 #' \code{\link{TrajSmoothSG}}.
@@ -73,10 +78,11 @@
 #' @param csvStruct A list which identifies the columns in each CSV file which
 #'   contain x-, y-, and optionally time-values.
 #' @param smoothP Filter order to be used for Savitzky-Golay smoothing (see
-#'   \code{\link{TrajSmoothSG}})
+#'   \code{\link{TrajSmoothSG}}). If \code{NA}, no smoothing is performed.
 #' @param smoothN Filter length to be used for Savitzky-Golay smoothing (must be
-#'   odd, see \code{\link{TrajSmoothSG}})
-#' @param translateToOrigin If TRUE, the trajectory is translated so that its
+#'   odd, see \code{\link{TrajSmoothSG}}). If \code{NA}, no smoothing is
+#'   performed.
+#' @param translateToOrigin If TRUE, each trajectory is translated so that its
 #'   starting point is at (0, 0).
 #' @param rootDir Optional name of a top level directory which contains the CSV
 #'   files. If \code{rootDir} is not NULL, the CSV files may be located anywhere
@@ -84,7 +90,9 @@
 #' @param csvReadFn Function used to read the CSV files. Required to accept
 #'   arguments \code{filename, ...}, and return a data frame of coordinates, or
 #'   a list of multiple data frames (see \code{\link[utils]{read.csv}},
-#'   \code{\link[utils]{read.csv2}}).
+#'   \code{\link[utils]{read.csv2}}). The default function calls
+#'   \code{\link[utils]{read.csv}} with argument \code{stringsAsFactors =
+#'   FALSE}.
 #' @param ... Additional arguments passed to \code{csvReadFn}.
 #'
 #' @return A list of trajectories.
@@ -116,7 +124,8 @@ TrajsBuild <- function(fileNames, fps = NULL, scale = NULL,
                        smoothP = 3, smoothN = 41,
                        translateToOrigin = FALSE,
                        rootDir = NULL,
-                       csvReadFn = utils::read.csv, ...) {
+                       csvReadFn = function (filename, ...) utils::read.csv(filename, stringsAsFactors = FALSE, ...),
+                       ...) {
   # I hate factors!
   fileNames <- as.character(fileNames)
   # Check that file names are unique
@@ -177,7 +186,7 @@ TrajsBuild <- function(fileNames, fps = NULL, scale = NULL,
 
         # Smooth
         if (is.numeric(smoothP) && is.numeric(smoothN)) {
-          trj <- TrajSmoothSG(trj, smoothP, smoothN)
+          trj <- TrajSmoothSG(trj, p = smoothP, n = smoothN)
         }
 
         # Translate to origin
@@ -208,6 +217,13 @@ TrajsBuild <- function(fileNames, fps = NULL, scale = NULL,
 #' @param trjs List of trajectories to be characterised.
 #' @param statsFn Function to calculate statistics of interest for a single
 #'   trajectory.
+#' @param progressBar Displays an optional progressbar, which may be helpful if
+#'   processing is very slow. The progressbar is displayed by printing to the
+#'   console, by using \code{winProgressBar} or
+#'   \code{\link[tcltk]{tkProgressBar}}, if \code{progressBar} is \code{"text"},
+#'   \code{"win"} or \code{"tk"} respectively. The default is no progressbar
+#'   (value \code{"none"}). The \code{"win"} progressbar is only available on
+#'   Windows.
 #' @param ... Additional arguments passed to \code{statsFn}.
 #'
 #' @examples
@@ -221,8 +237,12 @@ TrajsBuild <- function(fileNames, fps = NULL, scale = NULL,
 #'   mean_speed <- mean(derivs$speed)
 #'   sd_speed <- sd(derivs$speed)
 #'
+#'   # Resample to constant step length.
+#'   # Step length must be appropriate for the trajectory
+#'   resampled <- TrajRediscretize(trj, 2)
+#'
 #'   # Measures of straightness
-#'   sinuosity <- TrajSinuosity(trj)
+#'   sinuosity <- TrajSinuosity2(resampled)
 #'   Emax <- TrajEmax(resampled)
 #'
 #'   # Periodicity
@@ -244,26 +264,38 @@ TrajsBuild <- function(fileNames, fps = NULL, scale = NULL,
 #' }
 #'
 #' @export
-TrajsMergeStats <- function(trjs, statsFn, ...) {
-  # TODO rename? perhaps TrajsRBindStats would be more meaningful
-  result <- data.frame()
-  nc <- NA
-  rowNum <- 1
-  for (trj in trjs) {
-    row <- statsFn(trj, ...)
-    # Replace NULL with NA because NULL values are removed by rbind, resulting
-    # in: invalid list argument: all variables should have the same length
-    row[sapply(row, is.null)] <- NA
+TrajsMergeStats <- function(trjs, statsFn, progressBar = c("none", "text", "win", "tk"), ...) {
+  # TODO rename this function? perhaps TrajsCombineIndices (or TrajsRBindStats) would be more meaningful
 
-    if(is.na(nc))
-      nc <- length(row)
-    else if (nc != length(row))
-      stop(sprintf("Statistics for trajectory %d contains %d values, but expected %d", rowNum, length(row), nc))
-    result <- rbind(result, row)
+  # Setup the progress bar
+  progressBar <- match.arg(progressBar)
+  pb <- switch(progressBar,
+               none = function(close){},
+               text = ElapsedTimeProgressBarFn(length(trjs), buildTxtReportFn()),
+               win = ElapsedTimeProgressBarFn(length(trjs), buildWinReportFn("TrajsMergeStats")),
+               tk = ElapsedTimeProgressBarFn(length(trjs), buildTkReportFn("TrajsMergeStats"))
+  )
+  tryCatch({
+    result <- data.frame()
+    nc <- NA
 
-    rowNum <- rowNum + 1
-  }
-  result
+    for (trj in trjs) {
+      pb()
+      row <- statsFn(trj, ...)
+      # Replace NULL with NA because NULL values are removed by rbind, resulting
+      # in: invalid list argument: all variables should have the same length
+      row[sapply(row, is.null)] <- NA
+
+      if(is.na(nc))
+        nc <- length(row)
+      else if (nc != length(row))
+        stop(sprintf("Statistics for trajectory %d contains %d values, but expected %d", nrow(result), length(row), nc))
+      result <- rbind(result, row, stringsAsFactors = FALSE)
+    }
+    result
+  },
+  finally = pb(close = TRUE)
+  )
 }
 
 #' Step lengths of multiple trajectories
@@ -320,4 +352,38 @@ TrajsStatsReplaceNAs <- function(df, column, replacementValue = mean(df[,column]
     df[,flagColumn] <- as.numeric(is.na(col))
   }
   df
+}
+
+# Time conversion ####
+
+#' Converts a delimited time string to a numeric value
+#'
+#' Time values may be imported in a format which is not immediately usable by
+#' `trajr`. This function converts times that are specified as a number of
+#' delimited fields to a single numeric value. The default parameter values
+#' handle a value with 4 colon-separated values, which are hours, minutes,
+#' seconds and milliseconds, eg: "0:01:04:108" represents 1 minute, 4 seconds
+#' and 108 milliseconds, or 64.108 seconds.
+#'
+#' Note that the base R strptime can be used to convert time values in more
+#' complex date/time formats, but it does not handle millisecond fields.
+#'
+#' @param time A character string containing the time value to be converted.
+#' @param sep Field separator.
+#' @param factors Vector of numeric factors to be applied to each field, in the
+#'   order they occur within `time`. The default assumes 4 fields containing
+#'   numeric hours, minutes, seconds and milliseconds.
+#' @return `time` converted to a numeric value.
+#'
+#' @seealso \code{\link[base]{strptime}}
+#'
+#' @examples
+#' time <- c("0:00:00:029", "0:01:00:216", "0:02:01:062", "1:00:02:195", "1:06:03:949", "1:42:04:087")
+#' seconds <- TrajConvertTime(time)
+#'
+#' @export
+TrajConvertTime <- function(time, sep = ":", factors = c(60 * 60, 60, 1, .001)) {
+  # Split time on separator, and use matrix (inner) multiplication to
+  # convert each component to seconds then sum all components
+  c(as.matrix(utils::read.table(text = time, sep = sep)) %*% factors)
 }

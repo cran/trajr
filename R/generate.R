@@ -17,7 +17,10 @@
 #' the \code{angularErrorDist} and/or \code{linearErrorDist} parameters.
 #'
 #' The initial angle (for a random walk) or the intended direction (for a
-#' directed walk) is \code{0} radians. The starting position is \code{(0, 0)}.
+#' directed walk) is \code{0} radians. To change the initial angle or intended
+#' direction, call \code{\link{TrajRotate}} on the new trajectory. The starting
+#' position is \code{(0, 0)}. To change the starting position, call
+#' \code{\link{TrajTranslate}} on the new trajectory.
 #'
 #' @param n Number of steps in the trajectory.
 #' @param random If TRUE, a random search trajectory is returned, otherwise a
@@ -38,6 +41,7 @@
 #'   generate the lengths of each step.
 #' @param fps Simulated frames-per-second - used to generate times for each
 #'   point in the trajectory.
+#' @param ... Additional arguments are passed to \code{\link{TrajFromCoords}}.
 #'
 #' @return A new Trajectory with \code{n} segments and \code{n + 1} coordinate
 #'   pairs.
@@ -59,6 +63,15 @@
 #' trj <- TrajGenerate(500, angularErrorDist = function(n) runif(n, -pi, pi))
 #' plot(trj, main = "Uncorrelated walk")
 #'
+#' # Generate a walk directed northwards, starting from (200, 300),
+#' # with a mean step length of 200. The initially generated trajectory
+#' # is directed to angle 0, with starting point (0, 0)
+#' trj <- TrajGenerate(n = 20, stepLength = 200, random = FALSE)
+#' # Rotate 90 degrees about (0, 0) (i.e. from east to north)
+#' trj <- TrajRotate(trj, pi / 2, relative = FALSE)
+#' # Translate to desired starting point
+#' trj <- TrajTranslate(trj, 200, 300)
+#'
 #' @references
 #'
 #' Kareiva, P. M., & Shigesada, N. (1983). Analyzing insect movement as a
@@ -78,7 +91,8 @@ TrajGenerate <- function(n = 1000, random = TRUE, stepLength = 2,
                          angularErrorDist = function(n) stats::rnorm(n, sd = angularErrorSd),
                          linearErrorSd = 0.2,
                          linearErrorDist = function(n) stats::rnorm(n, sd = linearErrorSd),
-                         fps = 50) {
+                         fps = 50,
+                         ...) {
   angularErrors <- angularErrorDist(n)
   linearErrors <- linearErrorDist(n)
   stepLengths <- stepLength + linearErrors
@@ -100,5 +114,5 @@ TrajGenerate <- function(n = 1000, random = TRUE, stepLength = 2,
     coords <- c(complex(length.out = 1), cumsum(steps))
   }
 
-  TrajFromCoords(data.frame(x = Re(coords), y = Im(coords)), fps = fps)
+  TrajFromCoords(data.frame(x = Re(coords), y = Im(coords)), fps = fps, ...)
 }

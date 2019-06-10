@@ -8,10 +8,16 @@
 # Private functions ====================================================
 
 # Returns indices of local maxima.
-# To obtain local minima, call .JLocalMaxima(-x)
+#
+# To obtain local minima, call .JLocalMaxima(-x).
+#
+# A maximimum is defined here as a point equal to the greatest value within a
+# window. Hence, two or more equal contiguous values will count as maxima if
+# there are no higher vaues within each window.
 #
 # @param v vector of values.
-# @param window Number of points on each side which defines what counts as a local maxima.
+# @param window Number of points on each side which defines what counts as a
+#   local maxima.
 # @param startIndex Index of first point which can qualify as a maximum.
 # @param endIndex Index of last point which can qualify as a maximum.
 .JLocalMaxima <- function(v, window = 1, startIndex = 1, endIndex = length(v))
@@ -52,9 +58,9 @@
 #' @param trj The trajectory to calculate the directional autocorrelations for.
 #' @param deltaSMax Maximum delta s to calculate, default is \eqn{1/4} the
 #'   number of segments in the trajectory.
-#' @return a data frame with class \code{TrajDirectionAutocorrelations} and 2
+#' @return A data frame with class \code{TrajDirectionAutocorrelations} and 2
 #'   columns, \code{deltaS} and \code{C}. Plotting this object displays a graph
-#'   of the direction autocorrelation function, optionally with the locatino of
+#'   of the direction autocorrelation function, optionally with the location of
 #'   the first local minimum marked
 #'
 #' @seealso \code{\link{TrajDAFindFirstMinimum}},

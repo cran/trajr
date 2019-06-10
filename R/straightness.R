@@ -15,7 +15,7 @@
 #' turning angles of a trajectory with constant step length. Values of \code{r}
 #' near 1 indicating straighter paths. Hence, \code{r =
 #' Mod(TrajMeanVectorOfTurningAngles(trj))}, assuming that \code{trj} has a
-#' constant step length.
+#' constant step length (e.g. has been rediscretized).
 #'
 #' @param trj Trajectory object.
 #' @param compass.direction If not \code{NULL}, step angles are calculated
@@ -26,7 +26,15 @@
 #'   \code{Mod(r)} is the length of the mean vector which varies between 0 and
 #'   1, \code{Arg(r)} is the angle.
 #'
-#' @seealso \code{\link{TrajStraightness}}
+#' @seealso \code{\link{TrajStraightness}}, \code{\link{TrajAngles}},
+#'   \code{\link{TrajRediscretize}} for resampling a trajectory to a constant
+#'   step length, \code{\link{TrajResampleTime}} for resampling a trajectory to
+#'   a constant step time.
+#'
+#' @references
+#'
+#' Batschelet, E. (1981). Circular statistics in biology. ACADEMIC PRESS, 111
+#' FIFTH AVE., NEW YORK, NY 10003, 1981, 388.
 #'
 #' @export
 TrajMeanVectorOfTurningAngles <- function(trj, compass.direction = NULL) {
@@ -115,7 +123,9 @@ TrajStraightness <- function(trj) {
 TrajDirectionalChange <- function(trj, nFrames = 1) {
   .checkTrajHasTime(trj)
 
-  # Calculating this way is almost 1 order of magnitude faster than using the documented equation
+  # Calculating this way is about 1 order of magnitude faster than using the
+  # documented equation. There is a unit test (in test_basic.R) which checks
+  # that this gives the same results as the documented equation
   abs(.rad2deg(TrajAngles(trj, nFrames))) / diff(trj$displacementTime, 2 * nFrames)
 }
 
@@ -124,12 +134,16 @@ TrajDirectionalChange <- function(trj, nFrames = 1) {
 
 #' Sinuosity of a trajectory
 #'
-#' Calculates the sinuosity of a trajectory as defined by Bovet & Benhamou
-#' (1988), which is: \eqn{S = 1.18\sigma / \sqrt q} where \eqn{\sigma} is the
-#' standard deviation of the step turning angles and \eqn{q} is the mean step
-#' length. A corrected sinuosity index is available as the function
-#' \code{\link{TrajSinuosity2}} which handles a wider range of variations in
-#' step angles.
+#' Calculates the sinuosity of a (constant step length) trajectory as defined by
+#' Bovet & Benhamou (1988), which is: \eqn{S = 1.18\sigma / \sqrt q} where
+#' \eqn{\sigma} is the standard deviation of the step turning angles and \eqn{q}
+#' is the mean step length. A corrected sinuosity index is available as the
+#' function \code{\link{TrajSinuosity2}} which handles a wider range of
+#' variations in step angles.
+#'
+#' If your trajectory does not have a constant step length, it should be
+#' _rediscretized_ by calling \code{\link{TrajRediscretize}} before calling this
+#' function.
 #'
 #' @param trj Trajectory to calculate sinuosity of.
 #' @param compass.direction if not \code{NULL}, turning angles are calculated
@@ -139,7 +153,8 @@ TrajDirectionalChange <- function(trj, nFrames = 1) {
 #'
 #' @seealso \code{\link{TrajAngles}} for the turning angles in a trajectory,
 #'   \code{\link{TrajStepLengths}} for the step lengths,
-#'   \code{\link{TrajSinuosity2}} for a corrected version of sinuosity.
+#'   \code{\link{TrajSinuosity2}} for a corrected version of sinuosity, and
+#'   \code{\link{TrajRediscretize}} for resampling to a constant step length.
 #'
 #' @references
 #'
@@ -155,21 +170,26 @@ TrajSinuosity <- function(trj, compass.direction = NULL) {
 
 #' Sinuosity of a trajectory
 #'
-#' Calculates the sinuosity of a trajectory as defined by Benhamou (2004),
-#' equation 8. This is a corrected version of the sinuosity index defined in
-#' Bovet & Benhamou (1988), which is suitable for a wider range of turning angle
-#' distributions.
+#' Calculates the sinuosity of a (constant step length) trajectory as defined by
+#' Benhamou (2004), equation 8. This is a corrected version of the sinuosity
+#' index defined in Bovet & Benhamou (1988), which is suitable for a wider range
+#' of turning angle distributions.
 #'
 #' This function implements the formula \deqn{S = 2[p(((1 + c)/(1 - c)) +
 #' b^2)]^-0.5} where \eqn{c} is the mean cosine of turning angles, and \eqn{b}
 #' is the coefficient of variation of the step length.
+#'
+#' If your trajectory does not have a constant step length, it should be
+#' _rediscretized_ by calling \code{\link{TrajRediscretize}} before calling this
+#' function.
 #'
 #' @param trj A Trajectory object.
 #' @param compass.direction if not \code{NULL}, turning angles are calculated
 #'   for a directed walk, assuming the specified compass direction (in radians).
 #'   Otherwise, a random walk is assumed.
 #'
-#' @seealso \code{\link{TrajSinuosity}} for the uncorrected sinuosity index.
+#' @seealso \code{\link{TrajSinuosity}} for the uncorrected sinuosity index, and
+#'   \code{\link{TrajRediscretize}} for resampling to a constant step length.
 #'
 #' @references
 #'
@@ -196,15 +216,17 @@ TrajSinuosity2 <- function(trj, compass.direction = NULL) {
 
 #' Trajectory straightness index, E-max
 #'
-#' Emax is a single-valued measure of straightness defined by (Cheung, Zhang,
-#' Stricker, & Srinivasan, 2007). Emax-a is a dimensionless, scale-independent
-#' measure of the maximum possible expected displacement. Emax-b is Emax-a *
-#' mean step length, and gives the maximum possible expected displacement in
-#' spatial units. Values closer to 0 are more sinuous, while larger values
-#' (approaching infinity) are straighter.
+#' Emax, the maximum expected displacement, is a single-valued measure of
+#' straightness defined by (Cheung, Zhang, Stricker, & Srinivasan, 2007). Emax-a
+#' is a dimensionless, scale-independent measure of the maximum possible
+#' expected displacement. Emax-b is \code{Emax-a * mean step length}, and gives
+#' the maximum possible expected displacement in spatial units. Values closer to
+#' 0 are more sinuous, while larger values (approaching infinity) are
+#' straighter.
 #'
 #' @param trj Trajectory to be analysed.
-#' @param eMaxB If TRUE, calculates and returns Emax-b, otherwise returns Emax-a.
+#' @param eMaxB If TRUE, calculates and returns Emax-b, otherwise returns
+#'   Emax-a.
 #' @param compass.direction if not \code{NULL}, turning angles are calculated
 #'   for a directed walk, assuming the specified compass direction (in radians).
 #'   Otherwise, a random walk is assumed.

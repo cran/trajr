@@ -7,6 +7,23 @@ trjFromAnglesAndLengths <- function(angles, lengths) {
   TrajFromCoords(data.frame(Re(coords), Im(coords)))
 }
 
+# Reads a set of points from a file. The points come from multiple tracks
+# due to noise in the video conversion process.
+# The longest track is the one we are interested in
+#
+# Value - data frame with values x & y, and an attribute "numFrames" which records the number of frames in the source video
+.MreadPoints <- function(file, ...) {
+  points <- read.csv(file, comment.char = '#')
+
+  # Save the number of frames in the file in case the track doesn't extend until the end
+  maxFrame <- max(points$Frame)
+
+  # Save number of frames
+  attr(points, 'numFrames') <- maxFrame
+
+  points
+}
+
 test_that("Trajectory creation", {
   csvFile <- "../testdata/096xypts.csv"
   expect_true(file.exists(csvFile))
@@ -226,19 +243,22 @@ test_that("Translate", {
   trj <- TrajGenerate()
   dx <- 10
   dy <- 15
-  tt <- TrajTranslate(trj, dx, dy)
+  dt <- 2
+  tt <- TrajTranslate(trj, dx, dy, dt)
   expect_equal(nrow(tt), nrow(trj))
   expect_equal(tt$x, trj$x + dx)
   expect_equal(tt$y, trj$y + dy)
+  expect_equal(tt$time, trj$time + dt)
   expect_equal(tt$displacement, trj$displacement)
   expect_equal(TrajLength(tt), TrajLength(trj))
   expect_equal(TrajEmax(tt), TrajEmax(trj))
 
-  tto <- TrajTranslate(tt, -tt$x[1], -tt$y[1])
+  tto <- TrajTranslate(tt, -tt$x[1], -tt$y[1], -tt$time[1])
   expect_equal(nrow(tto), nrow(trj))
   expect_equal(tto$polar, trj$polar)
   expect_equal(tto$x, trj$x)
   expect_equal(tto$y, trj$y)
+  expect_equal(tto$time, trj$time)
   expect_equal(TrajLength(tto), TrajLength(trj))
   expect_equal(TrajEmax(tto), TrajEmax(trj))
 })
@@ -286,23 +306,6 @@ test_that("Smoothing", {
 })
 
 test_that("Convenience", {
-  # Reads a set of points from a file. The points come from multiple tracks
-  # due to noise in the video conversion process.
-  # The longest track is the one we are interested in
-  #
-  # Value - data frame with values x & y, and an attribute "numFrames" which records the number of frames in the source video
-  .MreadPoints <- function(file, ...) {
-    points <- read.csv(file, comment.char = '#')
-
-    # Save the number of frames in the file in case the track doesn't extend until the end
-    maxFrame <- max(points$Frame)
-
-    # Save number of frames
-    attr(points, 'numFrames') <- maxFrame
-
-    points
-  }
-
   tracks <- rbind(
     data.frame(file = "3527.csv", species = "Zodariid2 sp1", category = "spider"),
     data.frame(file = "3530.csv", species = "Daerlac nigricans", category = "mimic bug"),
@@ -382,6 +385,33 @@ test_that("Convenience-multi", {
   trjs <- TrajsBuild(c("one", "two"), csvReadFn = readFn, smoothN = 11)
 
   expect_equal(length(trjs), 4)
+})
+
+test_that("works with readr", {
+  tracks <- rbind(
+    data.frame(file = "3527.csv", species = "Zodariid2 sp1", category = "spider"),
+    data.frame(file = "3530.csv", species = "Daerlac nigricans", category = "mimic bug"),
+    data.frame(file = "3534.csv", species = "Daerlac nigricans", category = "mimic bug"),
+    data.frame(file = "3537.csv", species = "Myrmarachne erythrocephala", category = "mimic spider"),
+    data.frame(file = "3542.csv", species = "Polyrhachis sp1", category = "ant"),
+    data.frame(file = "3543.csv", species = "Polyrhachis sp1", category = "ant"),
+    data.frame(file = "3548.csv", species = "Crematogaster sp1", category = "ant"),
+    stringsAsFactors = FALSE
+  )
+  csvStruct <- list(x = "x", y = "y", time = "Time")
+
+  trjs <- TrajsBuild(tracks$file, csvStruct = csvStruct, smoothN = 11, rootDir = "..",
+                     csvReadFn = readr::read_csv,
+                     col_types = readr::cols(
+                       Frame = readr::col_integer(),
+                       Time = readr::col_double(),
+                       TrackId = readr::col_integer(),
+                       x = readr::col_double(),
+                       y = readr::col_double(),
+                       ValueChanged = readr::col_logical()
+                     ))
+
+  expect_equal(length(trjs), nrow(tracks))
 })
 
 test_that("Sinuosity", {
@@ -472,9 +502,31 @@ test_that("plots", {
 })
 
 test_that("rotation", {
+  # Expect a value to be equal in the first and last points
+  .expectSameCol <- function(trj, col = "x") {
+    expect_equal(trj[1, col], tail(trj, 1)[, col])
+  }
+
   set.seed(1)
   trj <- TrajGenerate(10)
+  # All default parameters
   r <- TrajRotate(trj)
+  .expectSameCol(r, "y")
+  rotAngle <- pi / 2
+  r <- TrajRotate(trj, rotAngle)
+  .expectSameCol(r)
+  # Test rotation of trajectory that doesn't start at the origin
+  ttrj <- TrajTranslate(trj, 1, 1)
+  tr <- TrajRotate(ttrj, rotAngle)
+  .expectSameCol(tr)
+  or <- TrajRotate(trj, rotAngle, origin = as.numeric(trj[1, c("x", "y")]))
+  .expectSameCol(or)
+  # Rotate about start point
+  otr <- TrajRotate(ttrj, rotAngle, origin = as.numeric(ttrj[1, c("x", "y")]))
+  .expectSameCol(otr)
+  # Rotated start point should be same as unrotated start point
+  expect_equal(otr[1, "x"], ttrj[1, "x"])
+  expect_equal(otr[1, "y"], ttrj[1, "y"])
 
   vo <- TrajMeanVelocity(trj)
   vr <- TrajMeanVelocity(r)
@@ -483,4 +535,97 @@ test_that("rotation", {
   expect_equal(Mod(vr), Mod(vo))
   expect_equal(TrajLength(trj), TrajLength(r))
   expect_true(Arg(vr) != Arg(vo))
+
+  # Test absolute rotation
+  aotr <- TrajRotate(ttrj, rotAngle, origin = as.numeric(ttrj[1, c("x", "y")]), relative = FALSE)
+  expect_equal(Arg(aotr$displacement[2]), Arg(ttrj$displacement[2]) + rotAngle)
+  expect_true(aotr[1, "y"] != tail(aotr, 1)[, "y"])
+
+  plot(trj, ylim = c(-5, 20))
+  plot(ttrj, lty = 2, add = TRUE)
+  plot(r, col = "blue", add = TRUE)
+  plot(tr, col = "blue", lty = 2, add = TRUE)
+  plot(or, col = "red", lty = 3, add = TRUE)
+  plot(otr, col = "red", lty = 3, add = TRUE)
+  plot(aotr, col = "green", lty = 3, lwd = 2, add = TRUE)
+})
+
+test_that("Convert times", {
+  .checkTimes <- function(t, s) {
+    seconds <- TrajConvertTime(t)
+    expect_equal(length(t), length(seconds))
+    expect_identical(seconds, s)
+  }
+
+  .checkTimes(c("0:00:00:000", "0:00:00:001", "0:00:01:000", "0:01:00:000", "1:00:00:000"),
+              c(0, .001, 1, 60, 60 * 60))
+
+  .checkTimes(c("0:00:00:001", "0:00:00:002", "0:00:00:003", "0:00:00:004"),
+              c(.001, .002, .003, .004))
+
+  .checkTimes(c("1:01:01:001", "2:02:02:002", "3:03:03:003", "4:04:04:004"),
+              c(3661.001, 7322.002, 10983.003, 14644.004))
+})
+
+test_that("Resampling", {
+  # Plot one trajectory over another
+  plotTwoTrjs <- function(trj1, trj2) {
+    plot(trj1, draw.start.pt = FALSE, lwd = 2)
+    points(trj1, cex = .6, draw.start.pt = FALSE)
+    lines(trj2, col = "red", lty = 2)
+    points(trj2, col = "red", draw.start.pt = FALSE)
+  }
+
+  set.seed(1)
+  # Give it a constant step length of 1 so that it has a constant speed to simplify some tests
+  trj <- TrajGenerate(10, angularErrorSd = 1, stepLength = 1, linearErrorDist = function(n) rep(0, n), fps = 1)
+  trjL <- TrajLength(trj)
+
+  # These tests aren't strictly required to be true because resampled
+  # trajectories are also smoothed, so may be shorter than expected
+  ta <- TrajResampleTime(trj, .5)
+  expect_true(trjL - TrajLength(ta) < .5)
+  # plotTwoTrjs(trj, ta)
+  tb <- TrajResampleTime(trj, .7)
+  expect_true(trjL - TrajLength(tb) < .7)
+  # plotTwoTrjs(trj, tb)
+  tc <- TrajResampleTime(trj, 1)
+  expect_true(trjL - TrajLength(tc) == 0)
+  # plotTwoTrjs(trj, tc)
+  td <- TrajResampleTime(trj, 2)
+  expect_true(trjL - TrajLength(td) < 2)
+  # plotTwoTrjs(trj, td)
+  te <- TrajResampleTime(trj, 2.1)
+  # This isn't TRUE, since resampled te is straighter than trj
+  #expect_true(trjL - TrajLength(td) < 2)
+  # plotTwoTrjs(trj, te)
+})
+
+test_that("Invalid parameter detection", {
+  expect_error(TrajsBuild("short.csv", csvStruct = list(x = "x", y = "y", time="t"), rootDir = ".."),
+               "Invalid smoothing parameter n \\(41): n must be less than the number of points in the trajectory \\(5)")
+})
+
+test_that("FPS calculation", {
+  tracks <- rbind(
+    data.frame(file = "3527.csv", species = "Zodariid2 sp1", category = "spider"),
+    stringsAsFactors = FALSE
+  )
+  csvStruct <- list(x = "x", y = "y")
+
+  # Expect an error if there's no time column or FPS specified
+  expect_error(TrajsBuild(tracks$file, scale = .220 / 720, spatialUnits = "m", timeUnits = "s", csvStruct = csvStruct, rootDir = "..", csvReadFn = .MreadPoints),
+               ".*Cannot create a trajectory without times: one of fps or a time column must be specified")
+  fps <- 50
+  trjs <- TrajsBuild(tracks$file, fps = fps, scale = .220 / 720, spatialUnits = "m", timeUnits = "s", csvStruct = csvStruct, rootDir = "..", csvReadFn = .MreadPoints)
+  # Expect the time interval between every 50 frames to be 1 second (allow small tolerance when testing == 1)
+  diffs <- diff(trjs[[1]]$Time, fps)
+  expect_true(all(abs(diffs - 1) < .00001))
+
+  # Now do the same thing with a frame rate of 240
+  fps <- 240
+  trjs <- TrajsBuild(tracks$file, fps = fps, scale = .220 / 720, spatialUnits = "m", timeUnits = "s", csvStruct = csvStruct, rootDir = "..", csvReadFn = .MreadPoints)
+  # Expect the time interval between every 50 frames to be 1 second (allow small tolerance when testing == 1)
+  diffs <- diff(trjs[[1]]$Time, fps)
+  expect_true(all(abs(diffs - 1) < .00001))
 })

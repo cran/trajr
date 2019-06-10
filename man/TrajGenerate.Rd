@@ -5,9 +5,10 @@
 \title{Generate a random trajectory}
 \usage{
 TrajGenerate(n = 1000, random = TRUE, stepLength = 2,
-  angularErrorSd = 0.5, angularErrorDist = function(n) stats::rnorm(n, sd =
-  angularErrorSd), linearErrorSd = 0.2, linearErrorDist = function(n)
-  stats::rnorm(n, sd = linearErrorSd), fps = 50)
+  angularErrorSd = 0.5, angularErrorDist = function(n) stats::rnorm(n,
+  sd = angularErrorSd), linearErrorSd = 0.2,
+  linearErrorDist = function(n) stats::rnorm(n, sd = linearErrorSd),
+  fps = 50, ...)
 }
 \arguments{
 \item{n}{Number of steps in the trajectory.}
@@ -36,6 +37,8 @@ generate the lengths of each step.}
 
 \item{fps}{Simulated frames-per-second - used to generate times for each
 point in the trajectory.}
+
+\item{...}{Additional arguments are passed to \code{\link{TrajFromCoords}}.}
 }
 \value{
 A new Trajectory with \code{n} segments and \code{n + 1} coordinate
@@ -58,7 +61,10 @@ directed walks} in the terminology of Cheung, Zhang, Stricker, & Srinivasan,
 the \code{angularErrorDist} and/or \code{linearErrorDist} parameters.
 
 The initial angle (for a random walk) or the intended direction (for a
-directed walk) is \code{0} radians. The starting position is \code{(0, 0)}.
+directed walk) is \code{0} radians. To change the initial angle or intended
+direction, call \code{\link{TrajRotate}} on the new trajectory. The starting
+position is \code{(0, 0)}. To change the starting position, call
+\code{\link{TrajTranslate}} on the new trajectory.
 }
 \examples{
 # Generate a 1000 step correlated random walk
@@ -76,6 +82,15 @@ plot(trj, main = "Directed walk")
 # Generate an uncorrelated random walk
 trj <- TrajGenerate(500, angularErrorDist = function(n) runif(n, -pi, pi))
 plot(trj, main = "Uncorrelated walk")
+
+# Generate a walk directed northwards, starting from (200, 300),
+# with a mean step length of 200. The initially generated trajectory
+# is directed to angle 0, with starting point (0, 0)
+trj <- TrajGenerate(n = 20, stepLength = 200, random = FALSE)
+# Rotate 90 degrees about (0, 0) (i.e. from east to north)
+trj <- TrajRotate(trj, pi / 2, relative = FALSE)
+# Translate to desired starting point
+trj <- TrajTranslate(trj, 200, 300)
 
 }
 \references{

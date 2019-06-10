@@ -84,7 +84,7 @@ trj <- TrajGenerate(10, stepLength = 2)
 
 # Plot original trajectory with dots at trajectory coordinates
 plot(trj, lwd = 2)
-points(trj, draw.start.pt = FALSE, pch = 16, col = "black")
+points(trj, draw.start.pt = FALSE, pch = 16, col = "black", cex = 1.2)
 
 # Resample to step length 1
 resampled <- TrajRediscretize(trj, 1)
@@ -94,6 +94,26 @@ lines(resampled, col = "#FF0000A0", lwd = 2)
 points(resampled, type = 'p', col = "#FF0000A0", pch = 16)
 legend("topright", c("Original", "Rediscretized"), col = c("black", "red"), 
        lwd = 2, inset = c(0.01, 0.02))
+
+## ----resample, fig.width=6, fig.height=4, fig.cap="_Resampling of trajectory with step duration  $1$ hour._", echo=-1:-2----
+par(mar = c(4, 4, 0.5, 0.5) + 0.1)
+set.seed(5)
+# Generate trajectory with a point every 2 hours and highly variable speed (which equates to step length)
+trj <- TrajGenerate(10, stepLength = 1, fps = .5, timeUnits = "hours", linearErrorSd = .8)
+
+# Plot original trajectory with dots at trajectory coordinates
+plot(trj, lwd = 2)
+points(trj, draw.start.pt = FALSE, pch = 16, col = "black", cex = 1.2)
+
+# Resample to 1 hourly steps
+resampled <- TrajResampleTime(trj, 1)
+
+# Plot rediscretized trajectory in red
+lines(resampled, col = "#FF0000A0", lwd = 2)
+points(resampled, type = 'p', col = "#FF0000A0", pch = 16)
+legend("topright", c("Original", "Resampled"), col = c("black", "red"), 
+       lwd = 2, inset = c(0.01, 0.02))
+
 
 ## ----echo=FALSE, results='asis', fig.align='left'------------------------
 kable(data.frame(`Function` = c("`TrajRotate`", "`TrajTranslate`", "`TrajReverse`",
@@ -176,9 +196,9 @@ reds <- lapply(stepSizes, function(ss) lapply(1:n, function(i) TrajRediscretize(
 par(mar = c(4, 4, 0.5, 0.5) + 0.1)
 
 # Calculate straightness (D/L) for all of the rediscretized trajectories
-ds <- sapply(reds, function(trjs) sapply(1:n, function(i) TrajStraightness(trjs[[i]])))
+ds <- sapply(reds, function(rtrjs) sapply(1:n, function(i) TrajStraightness(rtrjs[[i]])))
 # Calculate alternate straightness (r) for all of the rediscretized trajectories
-rs <- sapply(reds, function(trjs) sapply(1:n, function(i) Mod(TrajMeanVectorOfTurningAngles(trjs[[i]]))))
+rs <- sapply(reds, function(rtrjs) sapply(1:n, function(i) Mod(TrajMeanVectorOfTurningAngles(rtrjs[[i]]))))
 
 # Plot both indices on the same graph
 plot(rep(angularErrorSd, 3), rs,
@@ -198,7 +218,7 @@ legend("bottomleft", c(expression(italic(r)), "D/L", paste("Step length", stepSi
 par(mar = c(4, 4, 0.5, 0.5) + 0.1)
 
 # Calculate sinuosity for all of the rediscretized trajectories
-sins <- sapply(reds, function(trjs) sapply(1:n, function(i) TrajSinuosity2(trjs[[i]])))
+sins <- sapply(reds, function(rtrjs) sapply(1:n, function(i) TrajSinuosity2(rtrjs[[i]])))
 
 # Plot sinuosity vs angular error
 plot(rep(angularErrorSd, 3), sins,
@@ -212,7 +232,7 @@ legend("bottomright", paste("Step length", stepSizes),
 ## ----emax, fig.cap="_E~max~ as a function of $\\sigma_{\\Delta}$ (logarithmic axes)._", fig.height=4, fig.width=6, echo=-1----
 par(mar = c(4, 4, 1.5, 0.5) + 0.1)
 # Calculate Emax for all of the rediscretized trajectories (from the previous example)
-emaxs <- sapply(reds, function(trjs) sapply(1:n, function(i) TrajEmax(trjs[[i]])))
+emaxs <- sapply(reds, function(rtrjs) sapply(1:n, function(i) TrajEmax(rtrjs[[i]])))
 emaxs[emaxs < 0] <- NA # Avoid warnings when plotting on log axes
 
 # Plot Emax vs angular error on log axes
@@ -237,15 +257,15 @@ use <- sample.int(fn, n = length(angularErrorSd))
 fangularErrorSd <- angularErrorSd[use]
 
 # Calculate fractal dimension for all of the rediscretized trajectories
-d <- sapply(reds, function(trjs) sapply(use, function(i) {
-  TrajFractalDimension(trjs[[i]], stepSizes)
+d <- sapply(reds, function(rtrjs) sapply(use, function(i) {
+  TrajFractalDimension(rtrjs[[i]], stepSizes)
 }))
 
 # Plot fractal dimension vs angular error
 plot(rep(fangularErrorSd, 3), d,
      pch = 16, cex = .8, 
      col = c(rep('red', fn), rep('blue', fn), rep('darkgreen', fn)),
-     xlab = expression(sigma["angular error"]), ylab = expression(E[max]))
+     xlab = expression(sigma["angular error"]), ylab = "Fractal dimension")
 
 legend("topleft", c("Step length 1", "Step length 2", "Step length 10"), 
        pch = 16, col = c("red", "blue", "darkgreen"), inset = 0.01)
@@ -264,7 +284,7 @@ points(angularErrorSd, sddcs, pch = 16, cex = .8, col = 'red')
 legend("bottomright", c("DC", "SDDC"), 
        pch = 16, col = c("blue", "red"), inset = 0.01)
 
-## ----dirnAuto, fig.cap="_Direction autocorrelation of a random trajectory with first local minimum._", fig.width=6, fig.height=4, echo=c(-1,-2)----
+## ----dirnAuto, fig.cap="_Direction autocorrelation of a random trajectory with first local minimum indicated._", fig.width=6, fig.height=4, echo=c(-1,-2)----
 set.seed(1)
 par(mar = c(4, 4, 0.5, 0.5) + 0.1)
 trj <- TrajGenerate(1000)
@@ -363,6 +383,11 @@ legend("bottomleft", c("Spider", "Mimic", "Ant"), pch = 16,
 
 ## ------------------------------------------------------------------------
 summary(TrajsStepLengths(trjs))
+
+## ------------------------------------------------------------------------
+t <- data.frame(time = c("0:00:00:029", "0:01:00:216", "0:02:01:062", "1:00:02:195", "1:06:03:949", "1:42:04:087"), stringsAsFactors = FALSE)
+t$seconds <- TrajConvertTime(t$time)
+t
 
 ## ----generate, fig.width=6, fig.height=4, fig.cap="_Some generated trajectories. a) correlated walk, b) directed walk, c) brownian motion, d) Levy walk._", echo=-1:-2----
 set.seed(1)

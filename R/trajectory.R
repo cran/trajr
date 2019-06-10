@@ -37,7 +37,8 @@
   coords <- coords[startIdx:endIdx,]
   # Shouldn't be any NAs remaining
   if (anyNA(coords)) {
-    stop("Trajectory contains missing coordinate values")
+    stop(sprintf("Trajectory contains missing coordinate values, first row with NA is %d",
+                 which(is.na(coords))[1]))
   }
   coords
 }
@@ -54,7 +55,9 @@
 #' the time (in some numeric units) of each coordinate. Otherwise, times are
 #' calculated for each point as \code{(coord - 1) / fps} where \code{coord} is
 #' the index of the point; in other words, sampling at constant time intervals
-#' is assumed.
+#' is assumed. Time values require conversion if they are not numeric. It may be
+#' possible to use `strptime` for this purpose, or \code{\link{TrajConvertTime}}
+#' can be used to convert mutliple field time values.
 #'
 #' \code{x} and \code{y} must be square units. Longitude and latitude are not
 #' suitable for use as \code{x} and \code{y} values, since in general, \code{1°
@@ -108,6 +111,8 @@ TrajFromCoords <- function(track, xCol = 1, yCol = 2,
     if (is.numeric(col)) {
       names(trj)[col] <- name
     } else {
+      if (!(col %in% names(trj)))
+        stop(sprintf("Missing column '%s'", col))
       names(trj)[names(trj) == col] <- name
     }
     trj
@@ -182,23 +187,34 @@ TrajScale <- function(trj, scale, units, yScale = scale) {
 
 #' Rotate a trajectory
 #'
-#' Rotates a trajectory so that \code{angle(finish - start) == angle}
+#' Rotates a trajectory by \code{angle} (when \code{relative} is \code{FALSE}), or so
+#' that \code{angle(finish - start) == angle} (when \code{relative} is \code{TRUE}).
 #'
 #' @param trj The trajectory to be rotated.
-#' @param angle The angle between the first and last points in the rotated trajectory.
+#' @param angle The angle in radians between the first and last points in the
+#'   rotated trajectory.
+#' @param origin Trajectory is rotated about this point.
+#' @param relative If TRUE, \code{angle} is the angle (after rotation) from the
+#'   start to the end point of the trajectory. If FALSE, the trajectory is
+#'   rotated about its start point by \code{angle}.
 #' @return A new trajectory which is a rotated version of the input trajectory.
 #'
 #' @export
-TrajRotate <- function(trj, angle = 0) {
-  # Calculate current orientation
-  orient <- Arg(trj$polar[length(trj$polar)] - trj$polar[1])
-  # Calculate required rotation
-  alpha <- angle - orient
+TrajRotate <- function(trj, angle = 0, origin = c(0, 0), relative = TRUE) {
+  if (relative) {
+    # Calculate current orientation
+    orient <- Arg(trj$polar[length(trj$polar)] - trj$polar[1])
+    # Calculate required rotation
+    alpha <- angle - orient
+  } else {
+    alpha <- angle
+  }
   # Rotation matrix
   rm <- matrix(c(cos(alpha), sin(alpha), -sin(alpha), cos(alpha)), ncol = 2)
 
   # New track is old track rotated
-  nt <- as.data.frame(t(rm %*% (t(trj[,c('x', 'y')]))))
+  pts <- t(trj[,c('x', 'y')]) - origin
+  nt <- as.data.frame(t(rm %*% pts + origin))
   colnames(nt) <- c('x', 'y')
   trj$x <- nt$x
   trj$y <- nt$y
@@ -226,9 +242,10 @@ TrajReverse <- function(trj) {
 #'
 #' Shifts an entire trajectory by the specified delta x and y.
 #'
-#' @param trj The Trajectory to be translated
+#' @param trj The Trajectory to be translated.
 #' @param dx Delta x.
 #' @param dy Delta y.
+#' @param dt Delta time.
 #' @return A new trajectory which is a translated version of the input trajectory.
 #'
 #' @examples
@@ -238,13 +255,14 @@ TrajReverse <- function(trj) {
 #' trj <- TrajGenerate()
 #' trj <- TrajTranslate(trj, 10, 15)
 #'
-#' # Translate a trajectory so its origin (0, 0)
-#' trj <- TrajTranslate(trj, -trj$x[1], -trj$y[1])
+#' # Translate a trajectory so its origin (0, 0) and it starts at time 0
+#' trj <- TrajTranslate(trj, -trj$x[1], -trj$y[1], -trj$time[1])
 #'
 #' @export
-TrajTranslate <- function(trj, dx, dy) {
+TrajTranslate <- function(trj, dx, dy, dt = 0) {
   trj$x <- trj$x + dx
   trj$y <- trj$y + dy
+  trj$time <- trj$time + dt
 
   .fillInTraj(trj)
 }
@@ -253,11 +271,17 @@ TrajTranslate <- function(trj, dx, dy) {
 #'
 #' Smooths a trajectory using a Savitzky-Golay smoothing filter.
 #'
+#' Consider carefully the effects of smoothing an a trajectory with temporal
+#' gaps in the data. If the smoothed trajectory is to used used to derive speed
+#' and/or acceleration, it may be advisable to fill in the gaps before
+#' smoothing, possibly by calling \code{TrajResampleTime}.
+#'
 #' @param trj The trajectory to be smoothed.
 #' @param p polynomial order (passed to \code{\link[signal]{sgolayfilt}}).
 #' @param n Filter length (or window size), must be an odd number.  Passed to
 #'   \code{\link[signal]{sgolayfilt}}.
-#' @param ... Additional arguments are passed to \code{\link[signal]{sgolayfilt}}.
+#' @param ... Additional arguments are passed to
+#'   \code{\link[signal]{sgolayfilt}}.
 #' @return A new trajectory which is a smoothed version of the input trajectory.
 #'
 #' @seealso \code{\link[signal]{sgolayfilt}}
@@ -270,6 +294,10 @@ TrajTranslate <- function(trj, dx, dy) {
 #'
 #' @export
 TrajSmoothSG <- function(trj, p = 3, n = p + 3 - p%%2, ...) {
+  if (n %% 2 != 1)
+    stop(sprintf("Invalid smoothing parameter n (%d): n must be odd", n))
+  if (n > nrow(trj))
+    stop(sprintf("Invalid smoothing parameter n (%d): n must be less than the number of points in the trajectory (%d)", n, nrow(trj)))
   trj$x <- signal::sgolayfilt(trj$x, p, n, ...)
   trj$y <- signal::sgolayfilt(trj$y, p, n, ...)
   .fillInTraj(trj)

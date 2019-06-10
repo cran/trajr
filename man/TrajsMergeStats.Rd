@@ -4,13 +4,22 @@
 \alias{TrajsMergeStats}
 \title{Merge trajectory characteristics}
 \usage{
-TrajsMergeStats(trjs, statsFn, ...)
+TrajsMergeStats(trjs, statsFn, progressBar = c("none", "text", "win",
+  "tk"), ...)
 }
 \arguments{
 \item{trjs}{List of trajectories to be characterised.}
 
 \item{statsFn}{Function to calculate statistics of interest for a single
 trajectory.}
+
+\item{progressBar}{Displays an optional progressbar, which may be helpful if
+processing is very slow. The progressbar is displayed by printing to the
+console, by using \code{winProgressBar} or
+\code{\link[tcltk]{tkProgressBar}}, if \code{progressBar} is \code{"text"},
+\code{"win"} or \code{"tk"} respectively. The default is no progressbar
+(value \code{"none"}). The \code{"win"} progressbar is only available on
+Windows.}
 
 \item{...}{Additional arguments passed to \code{statsFn}.}
 }
@@ -34,8 +43,12 @@ characteriseTrajectory <- function(trj) {
   mean_speed <- mean(derivs$speed)
   sd_speed <- sd(derivs$speed)
 
+  # Resample to constant step length.
+  # Step length must be appropriate for the trajectory
+  resampled <- TrajRediscretize(trj, 2)
+
   # Measures of straightness
-  sinuosity <- TrajSinuosity(trj)
+  sinuosity <- TrajSinuosity2(resampled)
   Emax <- TrajEmax(resampled)
 
   # Periodicity

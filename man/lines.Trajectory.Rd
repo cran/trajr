@@ -4,7 +4,8 @@
 \alias{lines.Trajectory}
 \title{Add Trajectory lines to a plot}
 \usage{
-\method{lines}{Trajectory}(x, draw.start.pt = TRUE, turning.angles = NULL,
+\method{lines}{Trajectory}(x, draw.start.pt = TRUE, start.pt.cex = 0.8,
+  start.pt.pch = 16, start.pt.col = "black", turning.angles = NULL,
   ...)
 }
 \arguments{
@@ -12,6 +13,13 @@
 
 \item{draw.start.pt}{If TRUE, draws a dot at the start point of the
 trajectory.}
+
+\item{start.pt.cex}{Scale to apply when drawing the start point dot.}
+
+\item{start.pt.pch}{Pch (i.e. plot character, symbol or shape) to apply when
+drawing the start point dot.}
+
+\item{start.pt.col}{Colour to apply when drawing the start point dot.}
 
 \item{turning.angles}{If \code{random} or \code{directed}, draws step turning
 angles. \code{directed} assumes errors are relative to the first recorded
