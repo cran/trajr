@@ -16,8 +16,12 @@
   # Get polar coordinates
   trj$polar <- complex(real = trj$x, imaginary = trj$y)
 
-  # Calculate displacements from each point to the next
-  trj$displacement <- c(0, diff(trj$polar))
+  # Calculate displacements from each point to the next.
+  # Handle an empty trajectory
+  if (nrow(trj) > 0)
+    trj$displacement <- c(0, diff(trj$polar))
+  else
+    trj$displacement <- numeric()
 
   # Give it a special class
   if (class(trj)[1] != .TRAJ_CLASS)
@@ -82,7 +86,7 @@
 #'   the following components: \item{x}{X coordinates of trajectory points.}
 #'   \item{y}{Y coordinates of trajectory points.} \item{time}{Time (in
 #'   \code{timeUnits}) for each point. if \code{timeCol} is specified, values
-#'   are \code{trj[,timeCol]}, otherwise values are calculated from \code{fps}.}
+#'   are \code{track[,timeCol]}, otherwise values are calculated from \code{fps}.}
 #'   \item{displacementTime}{Relative frame/observation times, with
 #'   frame/observation 1 at time \code{0}.} \item{polar}{Coordinates represented
 #'   as complex numbers, to simplify working with segment angles.}
@@ -127,7 +131,7 @@ TrajFromCoords <- function(track, xCol = 1, yCol = 2,
     if (is.null(fps))
       stop("Cannot create a trajectory without times: one of fps or a time column must be specified")
     # Assign times to each frame, starting at 0
-    trj$time <- 0:(nrow(trj) - 1) / fps
+    trj$time <- (seq_len(nrow(trj)) - 1) / fps
   }
 
   # Check coordinates are valid
@@ -135,7 +139,7 @@ TrajFromCoords <- function(track, xCol = 1, yCol = 2,
 
   # Get times associated with displacements, with the first point at time 0,
   # i.e. time at each point in displacement, not time between points
-  trj$displacementTime <- trj$time[1:nrow(trj)] - trj$time[1]
+  trj$displacementTime <- trj$time - trj$time[1]
 
   # Save number of frames
   attr(trj, .TRAJ_NFRAMES) <- nrow(trj)
@@ -271,10 +275,10 @@ TrajTranslate <- function(trj, dx, dy, dt = 0) {
 #'
 #' Smooths a trajectory using a Savitzky-Golay smoothing filter.
 #'
-#' Consider carefully the effects of smoothing an a trajectory with temporal
-#' gaps in the data. If the smoothed trajectory is to used used to derive speed
-#' and/or acceleration, it may be advisable to fill in the gaps before
-#' smoothing, possibly by calling \code{TrajResampleTime}.
+#' Consider carefully the effects of smoothing a trajectory with temporal gaps
+#' in the data. If the smoothed trajectory is used to derive speed and/or
+#' acceleration, it may be advisable to fill in the gaps before smoothing,
+#' possibly by calling \code{TrajResampleTime}.
 #'
 #' @param trj The trajectory to be smoothed.
 #' @param p polynomial order (passed to \code{\link[signal]{sgolayfilt}}).

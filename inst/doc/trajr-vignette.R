@@ -1,4 +1,4 @@
-## ----setup, include = FALSE----------------------------------------------
+## ----setup, include = FALSE---------------------------------------------------
 knitr::opts_chunk$set(
   collapse = FALSE,
   comment = "#>",
@@ -10,14 +10,14 @@ library("plotrix")
 library("trajr")
 
 
-## ---- eval=FALSE---------------------------------------------------------
+## ---- eval=FALSE--------------------------------------------------------------
 #  install.packages("trajr")
 
-## ---- eval=FALSE---------------------------------------------------------
+## ---- eval=FALSE--------------------------------------------------------------
 #  install.packages("devtools")
 #  devtools::install_github("JimMcL/trajr")
 
-## ----eval=FALSE----------------------------------------------------------
+## ----eval=FALSE---------------------------------------------------------------
 #  library("trajr")
 
 ## ----randomWalk, echo=FALSE, fig.height=4, fig.width=6, fig.cap="_A correlated random walk with 5 steps. The direction of step $i$ is the direction of step $(i - 1) + \\Delta$~i~._"----
@@ -46,11 +46,11 @@ trj <- TrajFromCoords(coords)
 # Plot it
 plot(trj)
 
-## ---- eval=FALSE---------------------------------------------------------
+## ---- eval=FALSE--------------------------------------------------------------
 #  coords <- read.csv("mycoords.csv")
 #  trj <- TrajFromCoords(coords)
 
-## ---- eval=FALSE---------------------------------------------------------
+## ---- eval=FALSE--------------------------------------------------------------
 #  # Example 1
 #  coords <- read.csv("H. pahangensis.csv")
 #  trj <- TrajFromCoords(coords, spatialUnits = "pixels")
@@ -115,7 +115,7 @@ legend("topright", c("Original", "Resampled"), col = c("black", "red"),
        lwd = 2, inset = c(0.01, 0.02))
 
 
-## ----echo=FALSE, results='asis', fig.align='left'------------------------
+## ----echo=FALSE, results='asis', fig.align='left'-----------------------------
 kable(data.frame(`Function` = c("`TrajRotate`", "`TrajTranslate`", "`TrajReverse`",
                                 "`TrajGetFPS`", "`TrajGetNCoords`", "`TrajGetUnits`",
                                 "`TrajGetTimeUnits`", "`TrajStepLengths`", 
@@ -151,11 +151,11 @@ smoothed <- TrajSmoothSG(trj, 3, 101)
 # Calculate speed and acceleration
 derivs <- TrajDerivatives(smoothed)
 
-# Plot acceleration and speed
+# Plot change-in-speed and speed
 plot(derivs$acceleration ~ derivs$accelerationTimes, type = 'l', col = 'red', 
      yaxt = 'n',
      xlab = 'Time (s)',
-     ylab = expression(paste('Acceleration (', m/s^2, ')')))
+     ylab = expression(paste('Change in speed (', m/s^2, ')')))
 axis(side = 2, col = "red")
 lines(derivs$speed ~ derivs$speedTimes, col = 'blue')
 axis(side = 4, col = "blue")
@@ -177,7 +177,7 @@ print(intervals)
 # Plot speed over time with hovering intervals highlighted
 plot(intervals)
 
-## ----traj_prep, echo=-1--------------------------------------------------
+## ----traj_prep, echo=-1-------------------------------------------------------
 set.seed(1)
 # Generate some trajectories for use in examples
 n <- 100
@@ -291,7 +291,7 @@ trj <- TrajGenerate(1000)
 corr <- TrajDirectionAutocorrelations(trj)
 plot(corr)
 
-## ----multBuild-----------------------------------------------------------
+## ----multBuild----------------------------------------------------------------
 tracks <- as.data.frame(rbind(
   c("3527.csv", "Zodariid2 sp1",     "spider",       "red"),
   c("3530.csv", "Daerlac nigricans", "mimic bug",    "blue"),
@@ -311,7 +311,7 @@ trjs <- TrajsBuild(tracks$filename, scale = .220 / 720,
                    spatialUnits = "m", timeUnits = "s", 
                    csvStruct = csvStruct, rootDir = "..")
 
-## ----multstats-----------------------------------------------------------
+## ----multstats----------------------------------------------------------------
 # Define a function which calculates some statistics
 # of interest for a single trajectory
 characteriseTrajectory <- function(trj) {
@@ -381,10 +381,10 @@ customPcaPlot(PCA, tracks$category, tracks$col, cex = .8)
 legend("bottomleft", c("Spider", "Mimic", "Ant"), pch = 16, 
        col = c('red', 'blue', 'black'), inset = c(0.01, .02))
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 summary(TrajsStepLengths(trjs))
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 t <- data.frame(time = c("0:00:00:029", "0:01:00:216", "0:02:01:062", "1:00:02:195", "1:06:03:949", "1:42:04:087"), stringsAsFactors = FALSE)
 t$seconds <- TrajConvertTime(t$time)
 t
@@ -408,7 +408,7 @@ trj <- TrajGenerate(n = 500, angularErrorDist = function(n) stats::runif(n, -pi,
 plot(trj)
 mtext("c)", 3, -1.3, adj = .05)
 
-# Levy walk - path lengths follow a cauchy distribution
+# Levy walk - path lengths follow a Cauchy distribution
 trj <- TrajGenerate(linearErrorDist = stats::rcauchy)
 plot(trj)
 mtext("d)", 3, -1.3, adj = .05)

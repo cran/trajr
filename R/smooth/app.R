@@ -1,3 +1,4 @@
+# Simple shiny app to demostrate the effects of smoothing a trajectory
 library(shiny)
 library(trajr)
 
