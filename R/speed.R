@@ -20,11 +20,11 @@
 #' Calculates speed and change of speed along a trajectory over time. These are
 #' the first and second order derivatives of distance travelled over time. Noisy
 #' trajectories should be smoothed before being passed to this function, as
-#' noise is effectively amplifed when taking derivatives.
+#' noise is effectively amplified when taking derivatives.
 #'
 #' The value returned as \code{acceleration} is \emph{not} technically
-#' acceleration. In mechanics, acceleration is a vector. This value is a scalar
-#' quantity: change of speed, which is sometimes known informally as
+#' acceleration. In mechanics, acceleration is a vector. The returned value is a
+#' scalar quantity: change of speed, which is sometimes known informally as
 #' acceleration. This value corresponds to the acceleration in a 1-dimensional
 #' trajectory, with the sign indicating the direction of acceleration relative
 #' to the current direction of velocity. See \code{\link{TrajAcceleration}} for
@@ -193,7 +193,7 @@ TrajVelocity <- function(trj, diff = c("central", "forward", "backward")) {
 
   if (diff == "central") {
 
-    # Central diffs (this the the "double-interval" central difference)
+    # Central diffs (this is the "double-interval" central difference)
     # Sum time (h) for each adjacent pair of steps
     dt <- c(NA, .sumPairs(h), NA)
     vx <- stats::filter(x, c(1, 0, -1)) / dt
@@ -226,9 +226,9 @@ TrajVelocity <- function(trj, diff = c("central", "forward", "backward")) {
 # Linear interpolation of interval times for TrajSpeedIntervals
 .linearInterpTimes <- function(slowerThan, fasterThan, speed, times, startFrames, startTimes, stopFrames, stopTimes) {
 
-  if(is.null(slowerThan))
+  if (is.null(slowerThan))
     slowerThan <- NA
-  if(is.null(fasterThan))
+  if (is.null(fasterThan))
     fasterThan <- NA
 
   .interp <- function(f) {
@@ -269,7 +269,8 @@ TrajVelocity <- function(trj, diff = c("central", "forward", "backward")) {
 #'
 #' @param trj Trajectory to be analysed.
 #' @param fasterThan,slowerThan If not \code{NULL}, intervals will cover time
-#'   periods where speed exceeds/is lower than this value.
+#'   periods where speed exceeds/is lower than this value. At least one of
+#'   \code{fasterThan}, or \code{slowerThan} must be specified.
 #' @param interpolateTimes If \code{TRUE}, times will be linearly interpolated
 #'   between frames.
 #' @param diff Method used to calculate speed, see \code{\link{TrajVelocity}}
@@ -290,7 +291,8 @@ TrajVelocity <- function(trj, diff = c("central", "forward", "backward")) {
 #'   \item{fasterThan}{Value of the \code{fasterThan} argument.}
 #'   \item{speed}{Data frame with columns \code{speed} and \code{time}.}
 #'   \item{derivs}{Value returned by calling \code{TrajDerivatives(trj)}.
-#'   Provided for backwards-compatibility; use of \code{speed} is now preferred.}
+#'   Provided for backwards-compatibility; use of the \code{speed} attribute
+#'   is now preferred to the \code{derivs} attribute.}
 #'
 #' @seealso \code{\link{TrajVelocity}} for calculating trajectory velocity,
 #'   \code{\link{plot.TrajSpeedIntervals}} for plotting speed over time with
@@ -322,10 +324,10 @@ TrajSpeedIntervals <- function(trj, fasterThan = NULL, slowerThan = NULL, interp
 
   # Calculate for each point whether it is within an interval
   flags <- rep(TRUE, length(speed))
-  if(!is.null(fasterThan)) {
+  if (!is.null(fasterThan)) {
     flags <- flags & (speed > fasterThan)
   }
-  if(!is.null(slowerThan)) {
+  if (!is.null(slowerThan)) {
     flags <- flags & (speed < slowerThan)
   }
 
@@ -389,6 +391,22 @@ TrajSpeedIntervals <- function(trj, fasterThan = NULL, slowerThan = NULL, interp
 #' @param ... Additional arguments are passed to \code{\link[graphics]{plot}}.
 #'
 #' @seealso \code{\link{TrajSpeedIntervals}}
+#'
+#' @examples
+#' # Display speed intervals with custom x-axis labels
+#'
+#' # Generate and smooth a trajectory
+#' set.seed(3)
+#' trj <- TrajSmoothSG(TrajGenerate(120, fps = 0.5))
+#' # Get speed intervals to be plotted
+#' si <- TrajSpeedIntervals(trj, slowerThan = 0.9, diff = "central")
+#' # Plot, but don't label x axis
+#' plot(si, xlab = "Time (min:sec)", xaxt = "n")
+#' # Work out where x-axis tick marks should be
+#' speeds <- attr(si, "speed") # data frame containing speed over time
+#' p <- pretty(speeds$time)
+#' # Draw x-sxis ticks and labels with custom formatting
+#' axis(1, p, sprintf("%d:%02d", p %/% 60, p %% 60))
 #'
 #' @export
 plot.TrajSpeedIntervals <- function(x,

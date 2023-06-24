@@ -47,7 +47,7 @@ TrajMeanVectorOfTurningAngles <- function(trj, compass.direction = NULL) {
   # r <- sqrt(sum(cos(angles)) ^ 2 + sum(sin(angles)) ^ 2) / length(angles)
   # complex(modulus = r, argument = phi)
 
-  mean(complex(modulus = 1, argument = angles))
+  mean(complex(modulus = 1, argument = angles), na.rm = TRUE)
 }
 
 #' Straightness of a Trajectory
@@ -94,10 +94,10 @@ TrajStraightness <- function(trj) {
 #'
 #' Calculates the time variation of directional change (DC) of a trajectory
 #' \emph{sensu} Kitamura & Imafuku (2015). Directional change is defined as the
-#' angular change (in degrees) between any two points in the trajectory, divided
-#' by the time difference between the two points.
+#' angular change (in degrees) between two steps in the trajectory, divided by
+#' the time difference between the two steps.
 #'
-#' This function returns the DC for each pair of consecutive points. Kitamura &
+#' This function returns the DC for each pair of consecutive steps. Kitamura &
 #' Imafuku (2015) used the mean and the standard deviation of DC for portions of
 #' trajectories as index values of nonlinearity and irregularity respectively.
 #'
@@ -105,8 +105,8 @@ TrajStraightness <- function(trj) {
 #' @param nFrames Frame delta to process: if 1, every frame is processed, if 2,
 #'   every 2nd frame is processed, and so on. Default is 1.
 #' @return The directional change (DC) in degrees between every pair of
-#'   consecutive points in the trajectory, i.e. the returned vector will have
-#'   length \code{(nrow(trj) - 1)}.
+#'   consecutive segments in the trajectory, i.e. if \code{nFrames} is 1, the
+#'   returned vector will have length \code{nrow(trj) - 2}.
 #'
 #' @examples
 #' set.seed(42)
@@ -165,7 +165,7 @@ TrajDirectionalChange <- function(trj, nFrames = 1) {
 #' @export
 TrajSinuosity <- function(trj, compass.direction = NULL) {
   segLen <- mean(TrajStepLengths(trj))
-  1.18 * stats::sd(TrajAngles(trj, compass.direction = compass.direction)) / sqrt(segLen)
+  1.18 * stats::sd(TrajAngles(trj, compass.direction = compass.direction), na.rm = TRUE) / sqrt(segLen)
 }
 
 #' Sinuosity of a trajectory
@@ -199,7 +199,7 @@ TrajSinuosity2 <- function(trj, compass.direction = NULL) {
   # Coefficient of variation of step length
   b <- stats::sd(stepLengths) / p
   # Mean cosine of turning angles = length of mean vector of angles
-  c <- mean(cos(TrajAngles(trj, compass.direction = compass.direction)))
+  c <- mean(cos(TrajAngles(trj, compass.direction = compass.direction)), na.rm = TRUE)
   # Same calculation but a bit slower
   #c <- Mod(TrajMeanVectorOfTurningAngles(trj, compass.direction = compass.direction))
 
@@ -235,7 +235,7 @@ TrajSinuosity2 <- function(trj, compass.direction = NULL) {
 TrajEmax <- function(trj, eMaxB = FALSE, compass.direction = NULL) {
 
   # E(cos(angles)) = mean(cos(angles))
-  b <- mean(cos(TrajAngles(trj, compass.direction = compass.direction)))
+  b <- mean(cos(TrajAngles(trj, compass.direction = compass.direction)), na.rm = TRUE)
 
   # If it's E max b, multiply by mean step length
   f <- ifelse(eMaxB, mean(TrajStepLengths(trj)), 1)

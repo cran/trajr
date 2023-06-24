@@ -1,5 +1,13 @@
 # Trajectory basic query functions
 
+# Substitute for the R base function `Arg(z)` that treats the argument of zero
+# as undefined. The base R function returns 0.
+TrajArg <- function(z) {
+  ifelse(Mod(z) == 0,
+         NA,
+         Arg(z))
+}
+
 # ---- Trajectory query ----
 
 #' Trajectory frames-per-second
@@ -69,6 +77,7 @@ TrajStepLengths <- function(trj) {
 #' @param trj Trajectory whose distance is to be calculated.
 #' @param startIndex Index of the starting point.
 #' @param endIndex Index of the ending point.
+#'
 #' @return Numeric distance from the start to the end of the trajectory.
 #'
 #' @export
@@ -84,6 +93,7 @@ TrajDistance <- function(trj, startIndex = 1, endIndex = nrow(trj)) {
 #' @param trj Trajectory whose length is to be calculated.
 #' @param startIndex Index of the starting point.
 #' @param endIndex Index of the ending point.
+#'
 #' @return Numeric length of the trajectory.
 #'
 #' @seealso \code{\link{TrajStepLengths}}
@@ -101,6 +111,7 @@ TrajLength <- function(trj, startIndex = 1, endIndex = nrow(trj)) {
 #' @param trj Trajectory whose duration is to be calculated.
 #' @param startIndex Index of the starting point.
 #' @param endIndex Index of the ending point.
+#'
 #' @return Numeric duration of the trajectory, in time units.
 #'
 #' @seealso \code{\link{TrajGetTimeUnits}}
@@ -113,12 +124,13 @@ TrajDuration <- function(trj, startIndex = 1, endIndex = nrow(trj)) {
 #' Trajectory mean velocity
 #'
 #' Calculates the mean or net velocity of a trajectory (or a portion of a
-#' trajectory). Theisis the velocity from the start point to the end point,
+#' trajectory). This is the velocity from the start point to the end point,
 #' ignoring the path that was taken.
 #'
 #' @param trj Trajectory whose duration is to be calculated.
 #' @param startIndex Index of the starting point.
 #' @param endIndex Index of the ending point.
+#'
 #' @return Numeric duration of the trajectory, in time units.
 #'
 #' @seealso \code{\link{TrajGetTimeUnits}}
@@ -140,7 +152,15 @@ TrajMeanVelocity <- function(trj, startIndex = 1, endIndex = nrow(trj)) {
 #' Batschelet, (1981) for a detailed explanation and techniques for dealing with
 #' circular quantities.
 #'
-#' @param trj the trajectory whose whose angles are to be calculated.
+#' The turning angle before and after every zero-length segment will be
+#' \code{NA}, since the angle of a zero-length segment is undefined. This
+#' behaviour began in \code{trajr} version 1.5.0 (or development version
+#' 1.4.0.9000). Prior to this fix, the angle of a zero-length segment was
+#' assumed to be 0, which led to incorrect turning angles being returned. One
+#' approach to dealing with zero-length segments is to simply remove them from
+#' the trajectory. See \code{\link{TrajFromTrjPoints}} for a means to achieve this.
+#'
+#' @param trj the trajectory whose angles are to be calculated.
 #' @param lag Angles between every lag'th segment are calculated. Only applies
 #'   to non-directed walks, i.e. \code{compass.direction} is \code{NULL}.
 #' @param compass.direction If not \code{NULL}, step angles are calculated
@@ -148,9 +168,15 @@ TrajMeanVelocity <- function(trj, startIndex = 1, endIndex = nrow(trj)) {
 #'   to the previous step angle.
 #'
 #' @return Step angles in radians, normalised so that \code{-pi < angle <= pi}.
+#'   If \code{compass.direction} is \code{NULL} (the default), the returned
+#'   vector will have length \code{nrow(trj) - 2}, i.e. one angle for every pair
+#'   of adjacent segments. If \code{compass.direction} is not \code{NULL}, the
+#'   returned vector will have length \code{nrow(trj) - 1}, i.e. one angle for
+#'   every segment.
 #'
 #' @seealso \code{\link{TrajStepLengths}},
-#'   \code{\link{TrajMeanVectorOfTurningAngles}}
+#'   \code{\link{TrajMeanVectorOfTurningAngles}},
+#'   \code{\link{TrajFromTrjPoints}}
 #'
 #' @references
 #'
@@ -160,15 +186,17 @@ TrajMeanVelocity <- function(trj, startIndex = 1, endIndex = nrow(trj)) {
 #' @export
 TrajAngles <- function(trj, lag = 1, compass.direction = NULL) {
   if (is.null(compass.direction)) {
-    angles <- diff(Arg(trj$displacement[2:nrow(trj)]), lag)
+    angles <- diff(TrajArg(trj$displacement[2:nrow(trj)]), lag)
   } else {
-    angles <- Arg(trj$displacement[2:nrow(trj)]) - compass.direction
+    angles <- TrajArg(trj$displacement[2:nrow(trj)]) - compass.direction
   }
+
   # Normalise so that -pi < angle <= pi
-  ii <- angles <= -pi
+  ii <- which(angles <= -pi)
   angles[ii] <- angles[ii] + 2 * pi
-  ii <- angles > pi
+  ii <- which(angles > pi)
   angles[ii] <- angles[ii] - 2 * pi
+
   angles
 }
 
@@ -235,8 +263,8 @@ TrajExpectedSquareDisplacement <- function(trj, n = nrow(trj), eqn1 = TRUE, comp
   ta <- TrajAngles(trj, compass.direction = compass.direction)
   l <- mean(sl)
   l2 <- mean(sl ^ 2)
-  c <- mean(cos(ta))
-  s <- mean(sin(ta))
+  c <- mean(cos(ta), na.rm = TRUE)
+  s <- mean(sin(ta), na.rm = TRUE)
   s2 <- s^2
 
   if (eqn1) {

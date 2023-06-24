@@ -122,7 +122,8 @@ kable(data.frame(`Function` = c("`TrajRotate`", "`TrajTranslate`", "`TrajReverse
                                 "`TrajLength`", "`TrajDistance`", 
                                 "`TrajDuration`", "`TrajMeanVelocity`", "`TrajAngles`",
                                 "`TrajMeanVectorOfTurningAngles`",
-                                "`TrajExpectedSquareDisplacement`"), 
+                                "`TrajExpectedSquareDisplacement`",
+                                "`TrajFromTrjPoints`"), 
                  Description = c("Rotates a trajectory",
                                  "Translates a trajectory",
                                  "Reverses a trajectory",
@@ -137,7 +138,8 @@ kable(data.frame(`Function` = c("`TrajRotate`", "`TrajTranslate`", "`TrajReverse
                                  "Returns the mean velocity vector of the trajectory (or a portion)",
                                  "Returns the turning angles (radians) of a trajectory",
                                  "Returns the mean vector of the turning angles",
-                                 "Returns the expected square displacement of a correlated random walk")))
+                                 "Returns the expected square displacement of a correlated random walk",
+                                 "Creates a trajectory from a subset of the points in another trajectory")))
 
 
 ## ----speed, fig.cap="_Speed and acceleration over time._", fig.width=6, fig.height=4, echo=-1:-2----
@@ -321,7 +323,7 @@ characteriseTrajectory <- function(trj) {
   sd_speed <- sd(derivs$speed)
 
   # Measures of straightness
-  sinuosity <- TrajSinuosity(trj)
+  sinuosity <- TrajSinuosity2(trj)
   resampled <- TrajRediscretize(trj, .001)
   Emax <- TrajEmax(resampled)
 
@@ -366,7 +368,8 @@ customPcaPlot <- function(x, xlabs, xcols, choices = 1L:2L, ycol = "#ff2222aa", 
 
 # Here we are operating on the statistics from the previous example
 
-# Get rid of NAs in stats because prcomp can't handle them.
+# The PCA function, prcomp, can't handle NAs, so replace NAs with a "neutral" value 
+# and create a new column that flags which trajectories had an NA value.
 # First fix min_deltaS, and add an extra column which flags non-periodic trajectories
 pcaStats <- TrajsStatsReplaceNAs(stats, "min_deltaS", 
                                  replacementValue = 2 * max(stats$min_deltaS, na.rm = TRUE),
@@ -412,4 +415,18 @@ mtext("c)", 3, -1.3, adj = .05)
 trj <- TrajGenerate(linearErrorDist = stats::rcauchy)
 plot(trj)
 mtext("d)", 3, -1.3, adj = .05)
+
+## ----echo=FALSE, results='asis', fig.align='left'-----------------------------
+kable(data.frame(`Function` = c("`Traj3DFromCoords`", "`Traj3DLength`", "`Traj3DDistance`", "`Traj3DStraightness`",
+                                "`Traj3DRediscretize`", "`Traj3DResampleTime`", "`Traj3DSmoothSG`", "`Traj3DStepLengths`"), 
+                 Description = c("Creates a 3D Trajectory Object",
+                                 "Return the length along a 3D trajectory",
+                                 "Returns the distance between the start and end points of a 3D trajectory",
+                                 "Returns the straightness of a 3D trajectory (distance / length)",
+                                 "Resamples a 3D trajectory to a constant step length",
+                                 "Resample a 3D trajectory to a constant time interval",
+                                 "Smooths a 3D trajectory using a Savitzky-Golay filter",
+                                 "Returns a vector of step lengths of a 3D trajectory"
+                 )))
+
 

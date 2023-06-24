@@ -13,7 +13,7 @@
   meanStepLength <- mean(TrajStepLengths(x))
   segLen <- 0.8 * meanStepLength
   textDisplacement <- 0.3 * meanStepLength
-  labels <- parse(text= paste("Delta[", 1:n, "]", sep=""))
+  labels <- parse(text = paste("Delta[", 1:n, "]", sep=""))
 
   if (tolower(turning.angles) == "directed") {
     # Plot angles which represent angular errors, which reset at each step
@@ -75,11 +75,11 @@
 #' @param start.pt.pch Pch (i.e. plot character, symbol or shape) to apply when
 #'   drawing the start point dot.
 #' @param start.pt.col Colour to apply when drawing the start point dot.
-#' @param turning.angles If \code{random} or \code{directed}, draws step turning
-#'   angles. \code{directed} assumes errors are relative to the first recorded
-#'   step angle. \code{random} assumes errors are relative to the previous step.
-#' @param xlim,ylim,xlab,ylab,asp plotting parameters with useful defaults.
-#' @param ... Additional arguments are passed to \code{\link[graphics]{plot}}.
+#' @param turning.angles If \code{"random"} or \code{"directed"}, draws step turning
+#'   angles. \code{"directed"} assumes errors are relative to the first recorded
+#'   step angle. \code{"random"} assumes errors are relative to the previous step.
+#' @param xlim,ylim,xlab,ylab,asp,ann,axes,frame.plot plotting parameters with useful defaults.
+#' @param ... Additional arguments are passed to both \code{\link[graphics]{plot}} and \code{\link[graphics]{lines}}.
 #'
 #' @seealso \code{\link{TrajFromCoords}}
 #' @examples
@@ -96,9 +96,11 @@ plot.Trajectory <- function(x, add = FALSE,
                             xlim = grDevices::extendrange(x$x), ylim = grDevices::extendrange(x$y),
                             xlab = ifelse(is.null(TrajGetUnits(x)), "x", sprintf("x (%s)", TrajGetUnits(x))),
                             ylab = ifelse(is.null(TrajGetUnits(x)), "y", sprintf("y (%s)", TrajGetUnits(x))),
+                            ann = graphics::par("ann"), axes = TRUE, frame.plot = axes,
                             asp = 1, ...) {
   if (!add) {
-    graphics::plot(NULL, xlim = xlim, ylim = ylim, xlab = xlab, ylab = ylab, asp = asp, ...)
+    graphics::plot(NULL, xlim = xlim, ylim = ylim, xlab = xlab, ylab = ylab, asp = asp,
+                   ann = ann, axes = axes, frame.plot = frame.plot, ...)
   }
   graphics::lines(x, draw.start.pt = draw.start.pt,
                   start.pt.cex = start.pt.cex, start.pt.pch = start.pt.pch, start.pt.col = start.pt.col,
@@ -116,9 +118,9 @@ plot.Trajectory <- function(x, add = FALSE,
 #' @param start.pt.pch Pch (i.e. plot character, symbol or shape) to apply when
 #'   drawing the start point dot.
 #' @param start.pt.col Colour to apply when drawing the start point dot.
-#' @param turning.angles If \code{random} or \code{directed}, draws step turning
-#'   angles. \code{directed} assumes errors are relative to the first recorded
-#'   step angle. \code{random} assumes errors are relative to the previous step.
+#' @param turning.angles If \code{"random"} or \code{"directed"}, draws step turning
+#'   angles. \code{"directed"} assumes errors are relative to the first recorded
+#'   step angle. \code{"random"} assumes errors are relative to the previous step.
 #' @param ... Additional arguments are passed to \code{\link[graphics]{lines}}.
 #'
 #' @export
@@ -134,9 +136,9 @@ lines.Trajectory <- function(x, draw.start.pt = TRUE, start.pt.cex = 0.8, start.
 #' @param x An object of class "Trajectory", the trajectory to be plotted.
 #' @param draw.start.pt If TRUE, draws a dot at the start point of the
 #'   trajectory.
-#' @param turning.angles If \code{random} or \code{directed}, draws step turning
-#'   angles. \code{directed} assumes errors are relative to the first recorded
-#'   step angle. \code{random} assumes errors are relative to the previous step.
+#' @param turning.angles If \code{"random"} or \code{"directed"}, draws step turning
+#'   angles. \code{"directed"} assumes errors are relative to the first recorded
+#'   step angle. \code{"random"} assumes errors are relative to the previous step.
 #' @param ... Additional arguments are passed to \code{\link[graphics]{points}}.
 #'
 #' @export

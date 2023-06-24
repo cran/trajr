@@ -38,17 +38,24 @@ An object with class "\code{Trajectory}", which is a data.frame with
   the following components: \item{x}{X coordinates of trajectory points.}
   \item{y}{Y coordinates of trajectory points.} \item{time}{Time (in
   \code{timeUnits}) for each point. if \code{timeCol} is specified, values
-  are \code{track[,timeCol]}, otherwise values are calculated from \code{fps}.}
-  \item{displacementTime}{Relative frame/observation times, with
+  are \code{track[,timeCol]}, otherwise values are calculated from
+  \code{fps}.} \item{displacementTime}{Relative frame/observation times, with
   frame/observation 1 at time \code{0}.} \item{polar}{Coordinates represented
-  as complex numbers, to simplify working with segment angles.}
+  as complex numbers, to simplify working with segment angles. Beware when
+  using complex numbers in R; \code{Arg(0+0i)} should be undefined but
+  actually returns \code{0}.}
   \item{displacement}{Displacement vectors (represented as complex numbers)
   between each pair of consecutive points.}
+
+  In addition, any other columns \code{coords} are include in the data frame.
 }
 \description{
 \code{TrajFromCoords} creates a new trajectory object from a set of
 2-dimensional cartesian coordinates, times and some metadata. The coordinates
-are sometimes referred to as "relocations".
+are sometimes referred to as "relocations". Rows containing \code{NA}
+coordinate or time values at the start or end of the trajectory are
+discarded. \code{NA} coordinates or times in the middle of the trajectory
+generate an error.
 }
 \details{
 If \code{timeCol} is specified, \code{track[,timeCol]} is expected to contain
@@ -57,7 +64,7 @@ calculated for each point as \code{(coord - 1) / fps} where \code{coord} is
 the index of the point; in other words, sampling at constant time intervals
 is assumed. Time values require conversion if they are not numeric. It may be
 possible to use `strptime` for this purpose, or \code{\link{TrajConvertTime}}
-can be used to convert mutliple field time values.
+can be used to convert multiple field time values.
 
 \code{x} and \code{y} must be square units. Longitude and latitude are not
 suitable for use as \code{x} and \code{y} values, since in general, \code{1°
@@ -65,15 +72,26 @@ lat != 1° lon}. To create a trajectory from positions in latitude and
 longitude, it is first necessary to transform the positions to a suitable
 spatial projection such as UTM (possibly by using \code{spTransform} from the
 \code{rgdal} package).
+
+Leading and trailing rows with \code{NA} coordinate values are discarded.
+\code{NA} coordinate values within a trajectory generate an error.
+
+Since columns in \code{coords} are preserved in the returned trajectory, if
+\code{coords} contains an \code{x} or \code{y} column which is not identified
+by \code{xCol} or \code{yCal} respectively, an error will occur. This is to
+prevent columns being inadvertently overwritten.
 }
 \examples{
 
 coords <- data.frame(x = c(1, 1.5, 2, 2.5, 3, 4),
                      y = c(0, 0, 1, 1, 2, 1),
                      times = c(0, 1, 2, 3, 4, 5))
-trj <- TrajFromCoords(coords)
+trj <- TrajFromCoords(coords, timeCol = "times")
 
 par(mar = c(4, 4, 0.5, 0.5) + 0.1)
 plot(trj)
 
+}
+\seealso{
+\code{\link{TrajsBuild}}, \code{\link{Traj3DFromCoords}}
 }

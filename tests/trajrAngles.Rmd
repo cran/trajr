@@ -1,0 +1,47 @@
+---
+title: "Trajr angle computation"
+author: "Valentin Baumann"
+date: "08 07 2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r cars}
+
+library(trajr)
+library(ggplot2)
+
+```
+
+
+
+
+```{r}
+
+
+# create test traj
+testdf = data.frame(x = c(1,1,2,3,4,5,5,5,5,6,7), y = c(1,2,3,3,4,3,3,3,3,2,2))
+trj = TrajFromCoords(testdf)
+
+# visualize traj (three steps with zero movement at P(5|3))
+ggplot(trj, aes(x = x, y= y)) +
+  geom_point() +
+  geom_line() +
+  theme(aspect.ratio = 1)
+
+# compute angles
+angles = TrajAngles(trj)
+print(angles)
+
+
+# for me, angles[5]  and angles [8] should be "NA" (this is how it is implemented in the "traja" python package: https://joss.theoj.org/papers/10.21105/joss.03202)
+
+```
+
+
+

@@ -16,7 +16,8 @@ TrajSpeedIntervals(
 \item{trj}{Trajectory to be analysed.}
 
 \item{fasterThan, slowerThan}{If not \code{NULL}, intervals will cover time
-periods where speed exceeds/is lower than this value.}
+periods where speed exceeds/is lower than this value. At least one of
+\code{fasterThan}, or \code{slowerThan} must be specified.}
 
 \item{interpolateTimes}{If \code{TRUE}, times will be linearly interpolated
 between frames.}
@@ -40,7 +41,8 @@ A data frame of class "TrajSpeedIntervals", each row is an interval,
   \item{fasterThan}{Value of the \code{fasterThan} argument.}
   \item{speed}{Data frame with columns \code{speed} and \code{time}.}
   \item{derivs}{Value returned by calling \code{TrajDerivatives(trj)}.
-  Provided for backwards-compatibility; use of \code{speed} is now preferred.}
+  Provided for backwards-compatibility; use of the \code{speed} attribute
+  is now preferred to the \code{derivs} attribute.}
 }
 \description{
 Calculates and returns a list of time intervals during which speed is slower

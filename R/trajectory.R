@@ -7,12 +7,14 @@
 .TRAJ_TIME_UNITS <- 'timeUnits'
 .TRAJ_UNITS <- 'units'
 .TRAJ_CLASS <- "Trajectory"
+.TRAJ_3D_CLASS <- "Trajectory3D"
 
 # ---- Private functions ----
 
 # Must be called whenever the cartesian coordinates of a trajectory are
 # modified. Fills in polar coordinates and displacement.
-.fillInTraj <- function(trj) {
+.fillInTraj <- function(trj, dim = c("2D", "3D")) {
+  dim <- match.arg(dim)
   # Get polar coordinates
   trj$polar <- complex(real = trj$x, imaginary = trj$y)
 
@@ -23,29 +25,57 @@
   else
     trj$displacement <- numeric()
 
-  # Give it a special class
-  if (class(trj)[1] != .TRAJ_CLASS)
-    class(trj) <- c(.TRAJ_CLASS, class(trj))
+  # Fill in number of frames
+  attr(trj, .TRAJ_NFRAMES) <- nrow(trj)
+
+  # Give it a special class. Firstly ensure it is a 2d trajectory
+  if (!inherits(trj, .TRAJ_CLASS))
+      class(trj) <- c(.TRAJ_CLASS, class(trj))
+  # If requested, also ensure it is a 3d trajectory
+  if (dim == "3D" && !inherits(trj, .TRAJ_3D_CLASS))
+      class(trj) <- c(.TRAJ_3D_CLASS, class(trj))
 
   trj
 }
 
-.checkCoords <- function(coords) {
+.checkCoords <- function(coords, cols = c("x", "y", "time")) {
   # Remove NA values at the start or end of the coordinates
   for (startIdx in 1:nrow(coords)) {
-    if (!anyNA(coords[startIdx,])) break
+    if (!anyNA(coords[startIdx, cols])) break
   }
   for (endIdx in nrow(coords):1) {
-    if (!anyNA(coords[endIdx,])) break
+    if (!anyNA(coords[endIdx, cols])) break
   }
   coords <- coords[startIdx:endIdx,]
   # Shouldn't be any NAs remaining
-  if (anyNA(coords)) {
-    stop(sprintf("Trajectory contains missing coordinate values, first row with NA is %d",
-                 which(is.na(coords))[1]))
+  if (anyNA(coords[, cols])) {
+    stop(sprintf("Trajectory contains missing coordinate or time values, first row with NA is %d",
+                 which(is.na(coords[, cols]), arr.ind = TRUE)[1, 1] + startIdx - 1))
   }
   coords
 }
+
+# Renames a column in a data frame, given either the original column name or its
+# index. Throws an exception if the specified column doesn't exist
+.renameCol <- function(oldName, newName, df) {
+  # Check if we are overwriting a column
+  on <- ifelse(is.numeric(oldName), names(df)[oldName], oldName)
+  if (on != newName && newName %in% names(df)) {
+    stop(sprintf("Renaming column \"%s\" to \"%s\" will overwrite existing column \"%s\"",
+                 on, newName, newName))
+  }
+
+  if (is.numeric(oldName)) {
+    names(df)[oldName] <- newName
+  } else {
+    if (!(oldName %in% names(df)))
+      stop(sprintf("Missing column '%s'", oldName))
+    if (newName != oldName)
+    names(df)[names(df) == oldName] <- newName
+  }
+  df
+}
+
 
 # ---- Trajectory creation and modification ----
 
@@ -53,7 +83,10 @@
 #'
 #' \code{TrajFromCoords} creates a new trajectory object from a set of
 #' 2-dimensional cartesian coordinates, times and some metadata. The coordinates
-#' are sometimes referred to as "relocations".
+#' are sometimes referred to as "relocations". Rows containing \code{NA}
+#' coordinate or time values at the start or end of the trajectory are
+#' discarded. \code{NA} coordinates or times in the middle of the trajectory
+#' generate an error.
 #'
 #' If \code{timeCol} is specified, \code{track[,timeCol]} is expected to contain
 #' the time (in some numeric units) of each coordinate. Otherwise, times are
@@ -61,7 +94,7 @@
 #' the index of the point; in other words, sampling at constant time intervals
 #' is assumed. Time values require conversion if they are not numeric. It may be
 #' possible to use `strptime` for this purpose, or \code{\link{TrajConvertTime}}
-#' can be used to convert mutliple field time values.
+#' can be used to convert multiple field time values.
 #'
 #' \code{x} and \code{y} must be square units. Longitude and latitude are not
 #' suitable for use as \code{x} and \code{y} values, since in general, \code{1°
@@ -69,6 +102,14 @@
 #' longitude, it is first necessary to transform the positions to a suitable
 #' spatial projection such as UTM (possibly by using \code{spTransform} from the
 #' \code{rgdal} package).
+#'
+#' Leading and trailing rows with \code{NA} coordinate values are discarded.
+#' \code{NA} coordinate values within a trajectory generate an error.
+#'
+#' Since columns in \code{coords} are preserved in the returned trajectory, if
+#' \code{coords} contains an \code{x} or \code{y} column which is not identified
+#' by \code{xCol} or \code{yCal} respectively, an error will occur. This is to
+#' prevent columns being inadvertently overwritten.
 #'
 #' @param track data frame containing cartesian coordinates and optionally times
 #'   for the points in the trajectory.
@@ -86,22 +127,28 @@
 #'   the following components: \item{x}{X coordinates of trajectory points.}
 #'   \item{y}{Y coordinates of trajectory points.} \item{time}{Time (in
 #'   \code{timeUnits}) for each point. if \code{timeCol} is specified, values
-#'   are \code{track[,timeCol]}, otherwise values are calculated from \code{fps}.}
-#'   \item{displacementTime}{Relative frame/observation times, with
+#'   are \code{track[,timeCol]}, otherwise values are calculated from
+#'   \code{fps}.} \item{displacementTime}{Relative frame/observation times, with
 #'   frame/observation 1 at time \code{0}.} \item{polar}{Coordinates represented
-#'   as complex numbers, to simplify working with segment angles.}
+#'   as complex numbers, to simplify working with segment angles. Beware when
+#'   using complex numbers in R; \code{Arg(0+0i)} should be undefined but
+#'   actually returns \code{0}.}
 #'   \item{displacement}{Displacement vectors (represented as complex numbers)
 #'   between each pair of consecutive points.}
+#'
+#'   In addition, any other columns \code{coords} are include in the data frame.
 #'
 #' @examples
 #'
 #' coords <- data.frame(x = c(1, 1.5, 2, 2.5, 3, 4),
 #'                      y = c(0, 0, 1, 1, 2, 1),
 #'                      times = c(0, 1, 2, 3, 4, 5))
-#' trj <- TrajFromCoords(coords)
+#' trj <- TrajFromCoords(coords, timeCol = "times")
 #'
 #' par(mar = c(4, 4, 0.5, 0.5) + 0.1)
 #' plot(trj)
+#'
+#' @seealso \code{\link{TrajsBuild}}, \code{\link{Traj3DFromCoords}}
 #'
 #' @export
 TrajFromCoords <- function(track, xCol = 1, yCol = 2,
@@ -111,20 +158,10 @@ TrajFromCoords <- function(track, xCol = 1, yCol = 2,
   trj <- track
 
   # Ensure column names are as expected
-  renm <- function(col, name) {
-    if (is.numeric(col)) {
-      names(trj)[col] <- name
-    } else {
-      if (!(col %in% names(trj)))
-        stop(sprintf("Missing column '%s'", col))
-      names(trj)[names(trj) == col] <- name
-    }
-    trj
-  }
-  trj <- renm(xCol, 'x')
-  trj <- renm(yCol, 'y')
+  trj <- .renameCol(xCol, 'x', trj)
+  trj <- .renameCol(yCol, 'y', trj)
   if (!is.null(timeCol))
-    trj <- renm(timeCol, 'time')
+    trj <- .renameCol(timeCol, 'time', trj)
 
   # Allocate times if they aren't already known
   if (!('time' %in% names(trj))) {
@@ -134,15 +171,13 @@ TrajFromCoords <- function(track, xCol = 1, yCol = 2,
     trj$time <- (seq_len(nrow(trj)) - 1) / fps
   }
 
-  # Check coordinates are valid
+  # Check coordinates are valid and remove leading/trailing NAs
   trj <- .checkCoords(trj)
 
   # Get times associated with displacements, with the first point at time 0,
   # i.e. time at each point in displacement, not time between points
   trj$displacementTime <- trj$time - trj$time[1]
 
-  # Save number of frames
-  attr(trj, .TRAJ_NFRAMES) <- nrow(trj)
   # Save frame rate
   attr(trj, .TRAJ_FPS) <- fps
   # Save spatial units
@@ -153,6 +188,40 @@ TrajFromCoords <- function(track, xCol = 1, yCol = 2,
   trj <- .fillInTraj(trj)
 
   trj
+}
+
+#' Create a trajectory from a subset of another
+#'
+#' Creates a trajectory from a subset of the points in another trajectory,
+#' preserving metadata and all columns in the original trajectory.
+#'
+#' Note that removing points from a trajectory that does not contain a time
+#' column will change the timing of the points, and hence change velocity etc.
+#'
+#' @param trj Trajectory to extract points and metadata from.
+#' @param idx Indices of the points in \code{trj} to retain in the new
+#'   trajectory.
+#'
+#' @return A new trajectory which is the same as \code{trj} except with a subset
+#'   of points.
+#'
+#' @examples
+#' \dontrun{
+#' # Create a trajectory (trj2) by removing all zero-length
+#' # segments from another trajectory (trj). Keep all points
+#' # that are different from their preceding point, and also
+#' # keep the start point
+#' trj2 <- TrajFromTrjPoints(trj, c(1, which(Mod(trj$displacement) != 0)))
+#' }
+#'
+#' @export
+TrajFromTrjPoints <- function(trj, idx) {
+  TrajFromCoords(trj[idx, ],
+                 xCol = "x", yCol = "y", timeCol = "time",
+                 fps = TrajGetFPS(trj),
+                 spatialUnits = TrajGetUnits(trj),
+                 timeUnits = TrajGetTimeUnits(trj))
+
 }
 
 #' Scale a trajectory
@@ -181,7 +250,7 @@ TrajFromCoords <- function(track, xCol = 1, yCol = 2,
 #' @export
 TrajScale <- function(trj, scale, units, yScale = scale) {
   trj$x <- trj$x * scale
-  trj$y <- trj$y * scale
+  trj$y <- trj$y * yScale
 
   # Save units
   attr(trj, .TRAJ_UNITS) <- units
@@ -191,16 +260,19 @@ TrajScale <- function(trj, scale, units, yScale = scale) {
 
 #' Rotate a trajectory
 #'
-#' Rotates a trajectory by \code{angle} (when \code{relative} is \code{FALSE}), or so
-#' that \code{angle(finish - start) == angle} (when \code{relative} is \code{TRUE}).
+#' Rotates a trajectory by \code{angle} (when \code{relative} is \code{FALSE}),
+#' or so that \code{angle(finish - start) == angle} (when \code{relative} is
+#' \code{TRUE}).
 #'
 #' @param trj The trajectory to be rotated.
-#' @param angle The angle in radians between the first and last points in the
-#'   rotated trajectory.
+#' @param angle The angle of rotation in radians. Either the first and last
+#'   points in the rotated trajectory (when \code{relative = TRUE}), or else the
+#'   angle be rotated (when \code{relative = FALSE}).
 #' @param origin Trajectory is rotated about this point.
 #' @param relative If TRUE, \code{angle} is the angle (after rotation) from the
 #'   start to the end point of the trajectory. If FALSE, the trajectory is
-#'   rotated about its start point by \code{angle}.
+#'   rotated about its start point by \code{angle}. You probably want to use
+#'   \code{relative = TRUE}.
 #' @return A new trajectory which is a rotated version of the input trajectory.
 #'
 #' @export

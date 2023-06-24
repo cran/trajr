@@ -49,6 +49,15 @@ test_that("Trajectory creation", {
   expect_equal(range(scaled$x), xRange * scale)
   expect_equal(range(scaled$y), yRange * scale)
 
+  # Test different x & y scales
+  yScale <- scale * 0.8
+  scaledXY <- TrajScale(trj, scale, "m", yScale)
+  #lines(scaledXY, col = "red")
+  expect_false(is.null(scaledXY))
+  expect_equal(nrow(trj), nrow(scaledXY))
+  expect_equal(range(scaledXY$x), xRange * scale)
+  expect_equal(range(scaledXY$y), yRange * yScale)
+
   # Duration
   expect_equal(TrajDuration(trj), (nrow(trj) - 1) / 850)
   # Velocity
@@ -69,6 +78,9 @@ test_that("Trajectory creation", {
 
   # Rediscretization
   rd <- TrajRediscretize(smoothed, .001)
+  expect_error(TrajRediscretize(smoothed, 0))
+  expect_error(TrajRediscretize(smoothed, -0.001))
+  expect_error(TrajRediscretize(smoothed, 0.2))
   #plot(rd)
 
   expect_true(TrajStraightness(smoothed) < 1)
@@ -76,7 +88,7 @@ test_that("Trajectory creation", {
 
   corr <- TrajDirectionAutocorrelations(rd)
   # Check it can be plotted without an error
-  expect_error(plot(corr, type='l'), NA)
+  expect_error(plot(corr, type = 'l'), NA)
   mn <- TrajDAFindFirstMinimum(corr, 10)
   # points(mn["deltaS"], mn["C"], pch = 16, col = "red", lwd = 2)
   # points(mn["deltaS"], mn["C"], col = "black", lwd = 2)
@@ -85,6 +97,33 @@ test_that("Trajectory creation", {
   # points(mx["deltaS"], mx["C"], col = "black", lwd = 2)
 
 })
+
+test_that("Creation ignores unimportant NAs", {
+
+  # Silently ignore NAs in other columns
+  trj <- TrajFromCoords(data.frame(0, 0, NA))
+  expect_equal(nrow(trj), 1)
+
+  # Silently ignore leading or trailing NAs
+  trj <- TrajFromCoords(data.frame(c(0, 1, 2, 3, NA), c(NA, 1, 2, 3, 4), other = c(NA, "a", NA, "c", NA)))
+  expect_equal(nrow(trj), 3)
+  testthat::expect_true(all.equal(trj$other, c("a", NA, "c")))
+
+  # Report error if NA is in the middle of the trajectory
+  expect_error(TrajFromCoords(data.frame(c(0, 1, 2), c(0, NA, 2), c(NA, 1, NA))),
+               "Trajectory contains missing coordinate or time values, first row with NA is 2")
+
+  # Complain about NA in time
+  expect_error(TrajFromCoords(data.frame(c(0, 1, 2, 3, 4), c(0, 1, 2, 3, 4), c(NA, "a", NA, "c", NA)), timeCol = 3),
+               "Trajectory contains missing coordinate or time values, first row with NA is 3")
+  # Skip leading/trailing NAs in time
+  trj <- TrajFromCoords(data.frame(c(0, 1, 2, 3, 4), c(0, 1, 2, 3, 4), c(NA, 1, 2, 3, NA)), timeCol = 3)
+  expect_equal(nrow(trj), 3)
+  trj <- TrajFromCoords(data.frame(c(0, 1, 2, 3, 4), c(0, 1, 2, 3, 4), c(0, 1, 2, 3, 4)), timeCol = 3)
+  expect_equal(nrow(trj), 5)
+})
+
+
 
 test_that("Speed intervals", {
 
@@ -240,8 +279,14 @@ test_that("Directional change", {
   trj <- TrajGenerate()
   expect_equal(TrajDirectionalChange(trj), .bookCalc(trj))
 
-  #microbenchmark(TrajDirectionalChange(trj), .bookCalc(trj), times = 1000)
+  # csvFile <- "../testdata/test-dc.tsv"
+  # expect_true(file.exists(csvFile))
+  # data <- read.table(csvFile)
+  # names(data) <- c("time(s)", "x", "y", "immobile")
+  # trj <- TrajFromCoords(data, xCol = "x", yCol = "y", timeCol = "time(s)", spatialUnits = "pixels")
+  # expect_equal(TrajDirectionalChange(trj), .bookCalc(trj))
 
+  #microbenchmark(TrajDirectionalChange(trj), .bookCalc(trj), times = 1000)
 })
 
 test_that("Reverse", {
@@ -348,7 +393,7 @@ test_that("Convenience", {
   expect_equal(TrajGetTimeUnits(trjs[[2]]), "s")
 
   # Trajectories should start at origin
-  expect_true(!any(sapply(trjs, function (t) c(t$x[1], t$y[1])) == 0))
+  expect_true(!any(sapply(trjs, function(t) c(t$x[1], t$y[1])) == 0))
 
   # Define a function which calculates some statistics
   # of interest for a single trajectory
@@ -385,8 +430,13 @@ test_that("Convenience", {
 
   # Test translating to the origin
   trjs <- TrajsBuild(tracks$file, translateToOrigin = TRUE, scale = .220 / 720, spatialUnits = "m", timeUnits = "s", csvStruct = csvStruct, rootDir = "..", csvReadFn = .MreadPoints)
-  expect_true(all(sapply(trjs, function (t) c(t$x[1], t$y[1])) == 0))
+  expect_true(all(sapply(trjs, function(t) c(t$x[1], t$y[1])) == 0))
 
+  # Check that check.names works as expected
+  stats <- TrajsMergeStats(trjs, function(trj) list(`Mean speed` = 0, `Speed (sd)` = 0), check.names = TRUE)
+  expect_equal(names(stats), c("Mean.speed", "Speed..sd."))
+  stats <- TrajsMergeStats(trjs, function(trj) list(`Mean speed` = 0, `Speed (sd)` = 0), check.names = FALSE)
+  expect_equal(names(stats), c("Mean speed", "Speed (sd)"))
 })
 
 test_that("Convenience-multi", {
@@ -616,6 +666,8 @@ test_that("Resampling", {
   # This isn't TRUE, since resampled te is straighter than trj
   #expect_true(trjL - TrajLength(td) < 2)
   # plotTwoTrjs(trj, te)
+  expect_error(TrajResampleTime(trj, 0))
+  expect_error(TrajResampleTime(trj, -0.5))
 })
 
 test_that("Invalid parameter detection", {
@@ -652,4 +704,83 @@ test_that("Empty trajectory", {
   expect_equal(nrow(trj), 0)
   trj <- TrajFromCoords(data.frame(0, 0))
   expect_equal(nrow(trj), 1)
+})
+
+test_that("Turning angles", {
+  set.seed(1)
+  nsteps <- 10000
+  trj <- TrajGenerate(nsteps)
+  expect_equal(nrow(trj), nsteps + 1)
+  expect_equal(length(TrajAngles(trj)), nsteps - 1)
+  expect_equal(length(TrajAngles(trj, compass.direction = 0)), nsteps)
+
+  # # Now add in some 0-length segments
+  idx <- sort(sample(seq_len(nsteps + 1), round(nsteps * 1.5), replace = T))
+  trj <- TrajFromCoords(trj[idx, ])
+  nsteps <- nrow(trj) - 1
+  expect_equal(nrow(trj), nsteps + 1)
+  expect_equal(length(TrajAngles(trj)), nsteps - 1)
+  expect_equal(length(TrajAngles(trj, compass.direction = 0)), nsteps)
+
+  # Check that zero length segments return an angle of NA
+  testdf = data.frame(x = c(1,1,2,3,4,5,5,5,5,6,7), y = c(1,2,3,3,4,3,3,3,3,2,2))
+  trj = TrajFromCoords(testdf)
+  angles <- TrajAngles(trj)
+  # Any angle before or after a zero segment should be NA. There are 3
+  # contiguous zero segments in this trajectory, so there should be 4 NAs
+  expect_equal(which(is.na(angles)), c(5, 6, 7, 8))
+})
+
+test_that("TrajFromTrjPoints", {
+  # Check that the documented method for creating a trajectory without NA angles
+  # works
+  testdf = data.frame(tc = 1:11, y = c(1,2,3,3,4,3,3,3,3,2,2), x = c(1,1,2,3,4,5,5,5,5,6,7))
+  trj = TrajFromCoords(testdf, xCol = "x", yCol = "y", timeCol = "tc", fps = 20, timeUnits = "hours", spatialUnits = "km")
+  trj2 <- TrajFromTrjPoints(trj, c(1, which(Mod(trj$displacement) != 0)))
+  expect_equal(TrajLength(trj2), TrajLength(trj))
+  # There should be no NA angles in trj2
+  expect_true(any(is.na(TrajAngles(trj))))
+  expect_false(any(is.na(TrajAngles(trj2))))
+  expect_equal(TrajGetUnits(trj2), TrajGetUnits(trj))
+  expect_equal(TrajGetFPS(trj2), TrajGetFPS(trj))
+  expect_equal(TrajGetTimeUnits(trj2), TrajGetTimeUnits(trj))
+  expect_equal(trj2$displacementTime[nrow(trj2)], trj$displacementTime[nrow(trj)])
+})
+
+
+test_that("Rediscretization with simulated speed", {
+  trj <- TrajGenerate()
+  rd <- TrajRediscretize(trj, 2, simConstantSpeed = TRUE)
+  # plot(trj, lwd = 3)
+  # lines(rd, col = 2)
+  # Start times should be equal
+  expect_equal(rd$time[1], trj$time[1])
+  # Average speed should be similar
+  rdSp <- mean(Mod(TrajVelocity(rd)), na.rm = TRUE)
+  trjSp <- mean(Mod(TrajVelocity(trj)), na.rm = TRUE)
+  expect_lt(abs(log(rdSp / trjSp)), log(1.02))
+  # FPS should be similar
+  expect_equal(TrajGetFPS(rd), TrajGetFPS(trj), tolerance = 0.1)
+  # Change in speed roughly 0
+  acc <- mean(TrajDerivatives(rd)$acceleration, na.rm = TRUE)
+  expect_equal(acc, 0)
+
+  # Test that simulation without time throws exception
+  rd2 <- TrajRediscretize(trj, 2, simConstantSpeed = FALSE)
+  expect_error(TrajRediscretize(rd2, 4, simConstantSpeed = TRUE))
+})
+
+test_that("column overwriting check", {
+  n <- 10
+  df <- data.frame(realX = cumsum(rnorm(n)), realY = cumsum(rnorm(n)), x = rnorm(n), y = rnorm(n))
+  trj <- TrajFromCoords(df, "x", "y")
+  expect_equal(trj$x, df$x)
+  expect_equal(trj$y, df$y)
+  trj <- TrajFromCoords(df, 3, 4)
+  expect_equal(trj$x, df$x)
+  expect_equal(trj$y, df$y)
+  # Should throw an error because columns x and y will be overwritten
+  expect_error(TrajFromCoords(df))
+  expect_error(TrajFromCoords(df, 1, 2))
+  expect_error(TrajFromCoords(df, "realX", "realY"))
 })
