@@ -12,7 +12,7 @@
 
 <meta name="author" content="Jim McLean" />
 
-<meta name="date" content="2023-06-24" />
+<meta name="date" content="2023-11-28" />
 
 <title>Animal trajectory analysis with trajr</title>
 
@@ -340,7 +340,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Animal trajectory analysis with trajr</h1>
 <h4 class="author">Jim McLean</h4>
-<h4 class="date">2023-06-24</h4>
+<h4 class="date">2023-11-28</h4>
 
 
 <div id="TOC">
@@ -583,7 +583,11 @@ guidelines for choosing a suitable step length for rediscretization: too
 small a step length leads to oversampling, leading to high
 autocorrelation between steps and high variability; too large a step
 length results in undersampling and loss of information. See Turchin
-(1998) section 5.2.2 for a discussion.</p>
+(1998) section 5.2.2 for a discussion. By default, rediscretization
+discards time (and hence speed) information, however setting
+<code>simConstantSpeed = TRUE</code> simulates a constant speed
+trajectory with (approximately) the same duration (and hence average
+speed) as the original trajectory.</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>trj <span class="ot">&lt;-</span> <span class="fu">TrajGenerate</span>(<span class="dv">10</span>, <span class="at">stepLength =</span> <span class="dv">2</span>)</span>
 <span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a></span>
 <span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co"># Plot original trajectory with dots at trajectory coordinates</span></span>

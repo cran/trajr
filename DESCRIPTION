@@ -1,11 +1,11 @@
 Package: trajr
 Type: Package
 Title: Animal Trajectory Analysis
-Version: 1.5.0
-Date: 2023-06-22
+Version: 1.5.1
+Date: 2023-11-28
 Authors@R: person("Jim", "McLean", email = "jim_mclean@optusnet.com.au",
     role = c("aut", "cre"))
-Description: A toolbox to assist with statistical analysis of 2-dimensional animal trajectories.
+Description: A toolbox to assist with statistical analysis of animal trajectories.
     It provides simple access to algorithms for calculating and assessing a variety of 
     characteristics such as speed and acceleration, as well as multiple measures of 
     straightness or tortuosity. Some support is provided for 3-dimensional trajectories. 
@@ -20,9 +20,9 @@ Suggests: knitr, rmarkdown, testthat, readr, tcltk, sp, MASS, covr
 VignetteBuilder: knitr
 BuildVignettes: true
 NeedsCompilation: no
-Packaged: 2023-06-24 09:48:32 UTC; 87054612
+Packaged: 2023-11-28 02:14:00 UTC; 87054612
 Author: Jim McLean [aut, cre]
 Maintainer: Jim McLean <jim_mclean@optusnet.com.au>
 Depends: R (>= 3.5.0)
 Repository: CRAN
-Date/Publication: 2023-06-24 10:30:02 UTC
+Date/Publication: 2023-11-29 06:30:02 UTC
